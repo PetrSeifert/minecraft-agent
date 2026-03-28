@@ -1,0 +1,19 @@
+{
+  "name": "minecraft-agent",
+  "version": "1.0.0",
+  "description": "Modular Minecraft agent starter built on Mineflayer",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --env-file=.env src/index.js",
+    "start:example": "node --env-file=.env.example src/index.js",
+    "check": "node --check src/index.js && node --check src/config.js && node --check src/agent/index.js && node --check src/agent/eventStream.js && node --check src/agent/utils.js && node --check src/agent/debug/knockback.js && node --check src/agent/modules/chat.js && node --check src/agent/modules/pathing.js && node --check src/agent/modules/inventory.js && node --check src/agent/modules/world.js && node --check src/agent/modules/actions.js && node --check src/agent/modules/combat.js && node --check src/agent/modules/safety.js && node --check src/bot/createBot.js && node --check src/bot/installPhysicsCompat.js && node --check src/bot/installProtocolCompat.js && node --check src/bot/terminal.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mineflayer": "^4.35.0",
+    "mineflayer-pathfinder": "^2.4.5",
+    "vec3": "^0.1.10"
+  }
+}
