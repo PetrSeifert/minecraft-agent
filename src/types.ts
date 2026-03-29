@@ -64,6 +64,40 @@ export interface NearbyEntitySummary extends SerializedEntity {
   distance: number;
 }
 
+export interface VisibleAreaOptions {
+  blockLimit?: number;
+  entityLimit?: number;
+  maxDistance?: number;
+}
+
+export interface VisibleBlockSummary extends SerializedBlock {
+  distance: number;
+}
+
+export interface VisibleHazardSummary {
+  category: 'block' | 'entity';
+  distance: number;
+  name: string;
+  position: SerializedVec3 | null;
+  reason: string;
+}
+
+export interface VisibleAreaSnapshot {
+  focus: {
+    blockAtCursor: SerializedBlock | null;
+    entityAtCursor: SerializedEntity | null;
+  };
+  hazards: VisibleHazardSummary[];
+  heading: {
+    cardinal: string;
+    pitch: number;
+    yaw: number;
+  };
+  highlights: string[];
+  visibleBlocks: VisibleBlockSummary[];
+  visibleEntities: NearbyEntitySummary[];
+}
+
 export interface SerializedWindow {
   id: number | null;
   slotCount: number | null;
@@ -259,6 +293,7 @@ export interface WorldModule {
   findBlocksByName(name: string, options?: WorldQueryOptions): Array<SerializedBlock | null>;
   getBlockAt(position: Vec3Like | Vec3): BlockLike | null;
   getBlockDetailsAt(position: Vec3Like | Vec3): SerializedBlock | null;
+  inspectVisibleArea(options?: VisibleAreaOptions): VisibleAreaSnapshot;
   nearbyEntities(options?: WorldQueryOptions): NearbyEntitySummary[];
   nearestEntity(options?: WorldQueryOptions): EntityLike | null;
   nearestEntityDetails(options?: WorldQueryOptions): SerializedEntity | null;
@@ -331,6 +366,7 @@ export interface OrchestrationSnapshot {
     recentChat: string[];
     recentEvents: string[];
     shelters: string[];
+    visibleArea: VisibleAreaSnapshot;
   };
   planning: {
     currentGoal: string | null;

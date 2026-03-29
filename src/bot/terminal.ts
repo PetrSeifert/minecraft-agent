@@ -25,6 +25,7 @@ function helpText(): string {
     '/pos',
     '/inventory',
     '/entities [distance]',
+    '/inspect [distance]',
     '/findblock <block_name> [distance]',
     '/block <x> <y> <z>',
     '/goto <x> <y> <z> [range]',
@@ -60,6 +61,12 @@ async function runCommand(
     case 'entities': {
       const maxDistance = args[0] ? parseNumber(args[0], 'distance') : 16;
       return formatResult(agent.world.nearbyEntities({ maxDistance }));
+    }
+    case 'inspect': {
+      const maxDistance = args[0] ? parseNumber(args[0], 'distance') : undefined;
+      return formatResult(agent.world.inspectVisibleArea({
+        maxDistance,
+      }));
     }
     case 'findblock': {
       if (!args[0]) {
@@ -266,3 +273,10 @@ export function createTerminal(
     }
   });
 }
+
+export const terminalInternals = {
+  formatResult,
+  helpText,
+  parseNumber,
+  runCommand,
+};

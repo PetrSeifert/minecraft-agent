@@ -172,11 +172,11 @@ test('format helpers render compact chat event and entity summaries', () => {
 
 test('shelter and container cues stay compact and conservative', () => {
   const blockEntries = [
-    { distance: 1.2, name: 'barrel' },
-    { distance: 1.8, name: 'oak_door' },
-    { distance: 2.4, name: 'red_bed' },
-    { distance: 3.1, name: 'blue_shulker_box' },
-    { distance: 3.8, name: 'stone' },
+    { biome: null, boundingBox: 'block', diggable: true, distance: 1.2, name: 'barrel', position: null },
+    { biome: null, boundingBox: 'block', diggable: true, distance: 1.8, name: 'oak_door', position: null },
+    { biome: null, boundingBox: 'block', diggable: true, distance: 2.4, name: 'red_bed', position: null },
+    { biome: null, boundingBox: 'block', diggable: true, distance: 3.1, name: 'blue_shulker_box', position: null },
+    { biome: null, boundingBox: 'block', diggable: true, distance: 3.8, name: 'stone', position: null },
   ];
 
   assert.deepEqual(extractShelterCues(blockEntries, true), [
@@ -226,7 +226,23 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
         summarizeNow: () => null,
       },
       safety: { status: () => ({ hostiles: [] }) },
-      world: { nearbyEntities: () => [] },
+      world: {
+        inspectVisibleArea: () => ({
+          focus: {
+            blockAtCursor: null,
+            entityAtCursor: null,
+          },
+          hazards: [],
+          heading: {
+            cardinal: 'south',
+            pitch: 0,
+            yaw: 0,
+          },
+          highlights: [],
+          visibleBlocks: [],
+          visibleEntities: [],
+        }),
+      },
     } as never,
   );
 
@@ -319,8 +335,72 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
     memory,
     safety: safety as never,
     world: {
-      nearbyEntities({ limit = 10, matcher }: { limit?: number; matcher?: (entity: typeof entities[number]) => boolean } = {}) {
-        return entities.filter((entity) => (matcher ? matcher(entity) : true)).slice(0, limit) as never;
+      inspectVisibleArea() {
+        return {
+          focus: {
+            blockAtCursor: {
+              biome: 'plains',
+              boundingBox: 'block',
+              diggable: true,
+              name: 'barrel',
+              position: { x: 11, y: 64, z: 10 },
+            },
+            entityAtCursor: {
+              id: 100,
+              name: 'zombie',
+              position: { x: 10, y: 64, z: 12 },
+              type: 'mob',
+            },
+          },
+          hazards: [
+            {
+              category: 'entity',
+              distance: 2.2,
+              name: 'zombie',
+              position: { x: 10, y: 64, z: 12 },
+              reason: 'hostile',
+            },
+          ],
+          heading: {
+            cardinal: 'south',
+            pitch: 0,
+            yaw: 0,
+          },
+          highlights: [
+            'focus block: barrel (1.0)',
+            'focus entity: zombie (2.0)',
+            'block: barrel (1.0)',
+            'entity: zombie (2.2)',
+            'hazard: zombie (2.2)',
+          ],
+          visibleBlocks: [
+            {
+              biome: 'plains',
+              boundingBox: 'block',
+              diggable: true,
+              distance: 1,
+              name: 'barrel',
+              position: { x: 11, y: 64, z: 10 },
+            },
+            {
+              biome: 'plains',
+              boundingBox: 'block',
+              diggable: true,
+              distance: 1,
+              name: 'oak_door',
+              position: { x: 10, y: 64, z: 11 },
+            },
+            {
+              biome: 'plains',
+              boundingBox: 'block',
+              diggable: true,
+              distance: 2,
+              name: 'red_bed',
+              position: { x: 12, y: 64, z: 10 },
+            },
+          ],
+          visibleEntities: entities,
+        };
       },
     },
   } as never);
@@ -353,6 +433,14 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
     'red_bed (2)',
   ]);
   assert.deepEqual(snapshot.perception.containers, ['barrel (1)']);
+  assert.equal(snapshot.perception.visibleArea.heading.cardinal, 'south');
+  assert.deepEqual(snapshot.perception.visibleArea.highlights, [
+    'focus block: barrel (1.0)',
+    'focus entity: zombie (2.0)',
+    'block: barrel (1.0)',
+    'entity: zombie (2.2)',
+    'hazard: zombie (2.2)',
+  ]);
   assert.deepEqual(snapshot.perception.recentChat, [
     '<Alex> Need wood',
     'Night is coming',

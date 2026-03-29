@@ -10,13 +10,10 @@ import type {
   OrchestrationSnapshot,
   SafetyModule,
   SafetyStatus,
-  SerializedBlock,
+  VisibleBlockSummary,
   WorldModule,
 } from '../../types';
 
-const BLOCK_SCAN_HORIZONTAL_RADIUS = 4;
-const BLOCK_SCAN_VERTICAL_OFFSETS = [-1, 0, 1, 2];
-const BLOCK_SCAN_MAX_DISTANCE = 4.75;
 const MAX_NEARBY_BLOCKS = 20;
 const MAX_PERCEPTION_ITEMS = 10;
 const EQUIPMENT_DESTINATIONS = [
@@ -27,7 +24,6 @@ const EQUIPMENT_DESTINATIONS = [
   'feet',
   'off-hand',
 ] as const;
-const IGNORED_BLOCK_NAMES = new Set(['air', 'cave_air', 'void_air']);
 const CONTAINER_BLOCK_NAMES = new Set([
   'barrel',
   'blast_furnace',
@@ -39,13 +35,6 @@ const CONTAINER_BLOCK_NAMES = new Set([
   'smoker',
   'trapped_chest',
 ]);
-
-interface NearbyBlockEntry {
-  biome?: string | null;
-  distance: number;
-  name: string;
-  position?: ReturnType<typeof serializeVec3>;
-}
 
 interface OrchestrationContext {
   chat: ChatModule;
@@ -214,59 +203,6 @@ function isContainerBlockName(name: string | null | undefined): boolean {
   return CONTAINER_BLOCK_NAMES.has(name) || name.endsWith('_shulker_box');
 }
 
-function scanNearbyBlocks(bot: MinecraftBot): NearbyBlockEntry[] {
-  requireSpawned(bot);
-
-  const origin = bot.entity.position.floored();
-  const closestByName = new Map<string, NearbyBlockEntry>();
-
-  for (const yOffset of BLOCK_SCAN_VERTICAL_OFFSETS) {
-    for (let xOffset = -BLOCK_SCAN_HORIZONTAL_RADIUS; xOffset <= BLOCK_SCAN_HORIZONTAL_RADIUS; xOffset += 1) {
-      for (let zOffset = -BLOCK_SCAN_HORIZONTAL_RADIUS; zOffset <= BLOCK_SCAN_HORIZONTAL_RADIUS; zOffset += 1) {
-        const horizontalDistance = Math.sqrt(xOffset ** 2 + zOffset ** 2);
-
-        if (horizontalDistance > BLOCK_SCAN_HORIZONTAL_RADIUS) {
-          continue;
-        }
-
-        const blockPosition = origin.offset(xOffset, yOffset, zOffset);
-        const distance = blockPosition.distanceTo(origin);
-
-        if (distance > BLOCK_SCAN_MAX_DISTANCE) {
-          continue;
-        }
-
-        const block = bot.blockAt(blockPosition);
-
-        if (!block || IGNORED_BLOCK_NAMES.has(block.name)) {
-          continue;
-        }
-
-        const current = closestByName.get(block.name);
-
-        if (current && current.distance <= distance) {
-          continue;
-        }
-
-        closestByName.set(block.name, {
-          biome: block.biome?.name ?? null,
-          distance,
-          name: block.name,
-          position: serializeVec3(block.position),
-        });
-      }
-    }
-  }
-
-  return Array.from(closestByName.values()).sort((left, right) => {
-    if (left.distance !== right.distance) {
-      return left.distance - right.distance;
-    }
-
-    return left.name.localeCompare(right.name);
-  });
-}
-
 function isCurrentPositionEnclosed(bot: MinecraftBot): boolean {
   requireSpawned(bot);
 
@@ -285,7 +221,7 @@ function isCurrentPositionEnclosed(bot: MinecraftBot): boolean {
 }
 
 function extractShelterCues(
-  blockEntries: NearbyBlockEntry[],
+  blockEntries: VisibleBlockSummary[],
   shelteredNow: boolean,
 ): string[] {
   const cues = shelteredNow ? ['current_position_enclosed'] : [];
@@ -305,7 +241,7 @@ function extractShelterCues(
   return cues;
 }
 
-function extractContainerCues(blockEntries: NearbyBlockEntry[]): string[] {
+function extractContainerCues(blockEntries: VisibleBlockSummary[]): string[] {
   return blockEntries
     .filter((block) => isContainerBlockName(block.name))
     .slice(0, MAX_PERCEPTION_ITEMS)
@@ -330,23 +266,30 @@ function buildPerception(context: {
   world: WorldModule;
 }) {
   const { bot, chat, events, safetyStatus, world } = context;
-  const nearbyEntities = world.nearbyEntities({
-    limit: MAX_PERCEPTION_ITEMS,
-    maxDistance: 16,
+  const visibleArea = world.inspectVisibleArea({
+    blockLimit: MAX_NEARBY_BLOCKS,
+    entityLimit: MAX_PERCEPTION_ITEMS,
+    maxDistance: 8,
   });
   const hostileIds = new Set((safetyStatus.hostiles ?? []).map((entity) => entity.id));
-  const hostileEntities = world.nearbyEntities({
-    limit: MAX_PERCEPTION_ITEMS,
-    matcher: (entity) => hostileIds.has(entity.id ?? -1),
-    maxDistance: 16,
+  const hostileEntities = visibleArea.visibleEntities.filter((entity) => {
+    if (hostileIds.size > 0 && entity.id != null) {
+      return hostileIds.has(entity.id);
+    }
+
+    return (safetyStatus.hostiles ?? []).some((hostile) =>
+      hostile.id != null && entity.id != null
+        ? hostile.id === entity.id
+        : hostile.name === entity.name && hostile.username === entity.username,
+    );
   });
-  const scannedBlocks = scanNearbyBlocks(bot);
+  const scannedBlocks = visibleArea.visibleBlocks;
 
   return {
     nearbyBlocks: scannedBlocks
       .slice(0, MAX_NEARBY_BLOCKS)
       .map((block) => block.name),
-    nearbyEntities: nearbyEntities
+    nearbyEntities: visibleArea.visibleEntities
       .map(formatEntitySummary)
       .filter((value): value is string => Boolean(value)),
     hostiles: hostileEntities
@@ -366,6 +309,7 @@ function buildPerception(context: {
       .slice(-10)
       .map(formatEventSummary)
       .filter((value): value is string => Boolean(value)),
+    visibleArea,
   };
 }
 
@@ -429,5 +373,4 @@ export const orchestrationInternals = {
   isContainerBlockName,
   isCurrentPositionEnclosed,
   isShelterCueBlockName,
-  scanNearbyBlocks,
 };
