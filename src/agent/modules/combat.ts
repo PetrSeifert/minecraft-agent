@@ -1,4 +1,5 @@
 import { distanceToBot, isHostileEntity, serializeEntity, toVec3 } from '../utils';
+import { instrumentAsyncOperation } from '../operationEvents';
 
 import type {
   CombatModule,
@@ -21,7 +22,7 @@ export function createCombatModule(
 ): CombatModule {
   const { events, pathing, world } = context;
 
-  async function attackEntity(
+  async function attackEntityOperation(
     entity: EntityLike,
     options: { approachRange?: number; swing?: boolean } = {},
   ) {
@@ -46,7 +47,7 @@ export function createCombatModule(
     return serializeEntity(entity);
   }
 
-  async function attackNearestHostile(
+  async function attackNearestHostileOperation(
     maxDistance = 16,
     options: { approachRange?: number; swing?: boolean } = {},
   ) {
@@ -65,6 +66,44 @@ export function createCombatModule(
       matcher: isHostileEntity,
     });
   }
+
+  const attackEntity = instrumentAsyncOperation(events, {
+    action: 'combat.attackEntity',
+    failure: ([entity], error) => ({
+      priority: 9,
+      tags: ['combat', 'attack'],
+      text: `Failed to attack ${entity?.name ?? entity?.username ?? 'target'}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([entity]) => ({
+      priority: 5,
+      tags: ['combat', 'attack'],
+      text: `Attacking ${entity?.name ?? entity?.username ?? 'target'}`,
+    }),
+    success: (_args, entity) => ({
+      priority: 7,
+      tags: ['combat', 'attack'],
+      text: `Attacked ${entity?.name ?? entity?.username ?? 'target'}`,
+    }),
+  }, attackEntityOperation);
+
+  const attackNearestHostile = instrumentAsyncOperation(events, {
+    action: 'combat.attackNearestHostile',
+    failure: ([maxDistance = 16], error) => ({
+      priority: 9,
+      tags: ['combat', 'attack', 'hostile'],
+      text: `Failed to attack nearest hostile within ${maxDistance}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([maxDistance = 16]) => ({
+      priority: 5,
+      tags: ['combat', 'attack', 'hostile'],
+      text: `Attacking nearest hostile within ${maxDistance}`,
+    }),
+    success: (_args, entity) => ({
+      priority: 7,
+      tags: ['combat', 'attack', 'hostile'],
+      text: `Attacked hostile ${entity?.name ?? entity?.username ?? 'target'}`,
+    }),
+  }, attackNearestHostileOperation);
 
   return {
     attackEntity,

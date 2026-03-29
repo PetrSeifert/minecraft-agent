@@ -1,8 +1,10 @@
 import { isHostileEntity, serializeEntity, serializeVec3, toVec3 } from '../utils';
+import { instrumentAsyncOperation } from '../operationEvents';
 
 import type {
   CombatModule,
   EntityLike,
+  EventStreamLike,
   MinecraftBot,
   PathingModule,
   SafetyModule,
@@ -40,6 +42,7 @@ const HIGH_DANGER_HOSTILE_NAMES = new Set([
 
 interface SafetyContext {
   combat: CombatModule;
+  events: EventStreamLike;
   pathing: PathingModule;
   world: WorldModule;
 }
@@ -48,7 +51,7 @@ export function createSafetyModule(
   bot: MinecraftBot,
   context: SafetyContext,
 ): SafetyModule {
-  const { pathing, world } = context;
+  const { events, pathing, world } = context;
 
   let monitorEnabled = false;
   let monitorInterval: NodeJS.Timeout | null = null;
@@ -375,7 +378,7 @@ export function createSafetyModule(
     };
   }
 
-  async function escapeDanger(reason = 'manual') {
+  async function escapeDangerOperation(reason = 'manual') {
     if (escapeInProgress) {
       return {
         busy: true,
@@ -476,7 +479,7 @@ export function createSafetyModule(
     };
   }
 
-  async function retreatFromNearestHostile(minDistance = 12) {
+  async function retreatFromNearestHostileOperation(minDistance = 12) {
     const hostile = world.nearestHostile(minDistance * 2);
 
     if (!hostile?.position) {
@@ -490,6 +493,44 @@ export function createSafetyModule(
       hostile: serializeEntity(hostile),
     };
   }
+
+  const escapeDanger = instrumentAsyncOperation(events, {
+    action: 'safety.escapeDanger',
+    failure: ([reason = 'manual'], error) => ({
+      priority: 9,
+      tags: ['safety', 'escape'],
+      text: `Failed safety escape (${reason}): ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([reason = 'manual']) => ({
+      priority: 6,
+      tags: ['safety', 'escape'],
+      text: `Running safety escape (${reason})`,
+    }),
+    success: (_args, result) => ({
+      priority: 8,
+      tags: ['safety', 'escape'],
+      text: `Safety escape result: ${result.action ?? 'completed'}`,
+    }),
+  }, escapeDangerOperation);
+
+  const retreatFromNearestHostile = instrumentAsyncOperation(events, {
+    action: 'safety.retreatFromNearestHostile',
+    failure: ([minDistance = 12], error) => ({
+      priority: 9,
+      tags: ['safety', 'retreat'],
+      text: `Failed hostile retreat at distance ${minDistance}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([minDistance = 12]) => ({
+      priority: 6,
+      tags: ['safety', 'retreat'],
+      text: `Retreating from nearest hostile to distance ${minDistance}`,
+    }),
+    success: (_args, result) => ({
+      priority: 8,
+      tags: ['safety', 'retreat'],
+      text: `Retreated from ${result.hostile?.name ?? result.hostile?.username ?? 'hostile'} to distance ${result.minDistance}`,
+    }),
+  }, retreatFromNearestHostileOperation);
 
   bot.on('entityHurt', (entity) => {
     if (entity?.id === bot.entity?.id) {

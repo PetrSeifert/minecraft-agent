@@ -1,5 +1,6 @@
 import { Vec3 } from 'vec3';
 
+import { instrumentAsyncOperation } from '../operationEvents';
 import {
   CARDINAL_FACES,
   requireSpawned,
@@ -29,13 +30,18 @@ interface ActionsContext {
   world: WorldModule;
 }
 
+function formatPosition(position: Vec3Like | Vec3): string {
+  const vec = toVec3(position).floored();
+  return `${vec.x},${vec.y},${vec.z}`;
+}
+
 export function createActionsModule(
   bot: MinecraftBot,
   context: ActionsContext,
 ): ActionsModule {
   const { events, inventory, pathing, world } = context;
 
-  async function mineBlockAt(
+  async function mineBlockAtOperation(
     position: Vec3Like,
     options: { forceLook?: boolean; reach?: number } = {},
   ) {
@@ -84,7 +90,7 @@ export function createActionsModule(
     return tableDetails?.position ? world.getBlockAt(tableDetails.position) : null;
   }
 
-  async function craftItem(
+  async function craftItemOperation(
     name: string,
     count = 1,
     craftingTablePosition: Vec3Like | null = null,
@@ -147,7 +153,7 @@ export function createActionsModule(
     return null;
   }
 
-  async function placeBlockAt(itemName: string, position: Vec3Like) {
+  async function placeBlockAtOperation(itemName: string, position: Vec3Like) {
     requireSpawned(bot);
 
     const targetPosition = toVec3(position).floored();
@@ -185,7 +191,7 @@ export function createActionsModule(
     return serializeBlock(placedBlock);
   }
 
-  async function openContainerAt(position: Vec3Like) {
+  async function openContainerAtOperation(position: Vec3Like) {
     requireSpawned(bot);
 
     const block = world.getBlockAt(position);
@@ -217,6 +223,82 @@ export function createActionsModule(
       window: serializeWindow(container),
     };
   }
+
+  const mineBlockAt = instrumentAsyncOperation(events, {
+    action: 'actions.mineBlockAt',
+    failure: ([position], error) => ({
+      priority: 8,
+      tags: ['actions', 'mine'],
+      text: `Failed to mine block at ${formatPosition(position)}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([position]) => ({
+      priority: 4,
+      tags: ['actions', 'mine'],
+      text: `Mining block at ${formatPosition(position)}`,
+    }),
+    success: (_args, block) => ({
+      priority: 6,
+      tags: ['actions', 'mine'],
+      text: `Mined ${block?.name ?? 'block'}`,
+    }),
+  }, mineBlockAtOperation);
+
+  const craftItem = instrumentAsyncOperation(events, {
+    action: 'actions.craftItem',
+    failure: ([name, count = 1], error) => ({
+      priority: 8,
+      tags: ['actions', 'craft'],
+      text: `Failed to craft ${count} ${name}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([name, count = 1]) => ({
+      priority: 4,
+      tags: ['actions', 'craft'],
+      text: `Crafting ${count} ${name}`,
+    }),
+    success: (_args, result) => ({
+      priority: 6,
+      tags: ['actions', 'craft'],
+      text: `Crafted ${result.count} ${result.item}`,
+    }),
+  }, craftItemOperation);
+
+  const placeBlockAt = instrumentAsyncOperation(events, {
+    action: 'actions.placeBlockAt',
+    failure: ([itemName, position], error) => ({
+      priority: 8,
+      tags: ['actions', 'place'],
+      text: `Failed to place ${itemName} at ${formatPosition(position)}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([itemName, position]) => ({
+      priority: 4,
+      tags: ['actions', 'place'],
+      text: `Placing ${itemName} at ${formatPosition(position)}`,
+    }),
+    success: (_args, block) => ({
+      priority: 6,
+      tags: ['actions', 'place'],
+      text: `Placed ${block?.name ?? 'block'}`,
+    }),
+  }, placeBlockAtOperation);
+
+  const openContainerAt = instrumentAsyncOperation(events, {
+    action: 'actions.openContainerAt',
+    failure: ([position], error) => ({
+      priority: 8,
+      tags: ['actions', 'container'],
+      text: `Failed to open container at ${formatPosition(position)}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([position]) => ({
+      priority: 4,
+      tags: ['actions', 'container'],
+      text: `Opening container at ${formatPosition(position)}`,
+    }),
+    success: (_args, result) => ({
+      priority: 6,
+      tags: ['actions', 'container'],
+      text: `Opened ${result.block?.name ?? 'container'}`,
+    }),
+  }, openContainerAtOperation);
 
   return {
     craftItem,

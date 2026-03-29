@@ -281,6 +281,10 @@ export function summarizePayload(payload: unknown): string | number | boolean | 
     return `<${candidate.username}> ${candidate.text}`;
   }
 
+  if (candidate.text) {
+    return candidate.text;
+  }
+
   if (candidate.name && candidate.position) {
     const { x, y, z } = candidate.position;
     return `${candidate.name} @ ${x},${y},${z}`;

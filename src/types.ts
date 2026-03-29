@@ -132,6 +132,43 @@ export interface StreamEvent {
   type: string;
 }
 
+export interface WorkingMemoryItem {
+  expiresAt?: string | null;
+  priority: number;
+  tags: string[];
+  text: string;
+  timestamp: string;
+}
+
+export interface ShortTermEvent {
+  id: number;
+  payload?: unknown;
+  priority?: number;
+  sourceEventId?: number | null;
+  sourceType?: string | null;
+  tags: string[];
+  text: string;
+  timestamp: string;
+  type: string;
+}
+
+export interface ShortTermSummary {
+  endEventId: number | null;
+  startEventId: number | null;
+  tags: string[];
+  text: string;
+  timestamp: string;
+}
+
+export interface MemoryState {
+  longTerm: [];
+  shortTerm: {
+    events: ShortTermEvent[];
+    summaries: ShortTermSummary[];
+  };
+  working: WorkingMemoryItem[];
+}
+
 export interface WorldQueryOptions {
   count?: number;
   limit?: number;
@@ -285,11 +322,7 @@ export interface SafetyModule {
 }
 
 export interface OrchestrationSnapshot {
-  memory: {
-    longTerm: unknown[];
-    shortTerm: unknown[];
-    working: unknown[];
-  };
+  memory: MemoryState;
   perception: {
     containers: string[];
     hostiles: string[];
@@ -300,10 +333,10 @@ export interface OrchestrationSnapshot {
     shelters: string[];
   };
   planning: {
-    currentGoal: unknown;
+    currentGoal: string | null;
     currentSkill: unknown;
     plan: unknown[];
-    recentFailures: unknown[];
+    recentFailures: WorkingMemoryItem[];
   };
   self: {
     biome: string;
@@ -319,6 +352,13 @@ export interface OrchestrationSnapshot {
 
 export interface OrchestrationModule {
   snapshot(): OrchestrationSnapshot;
+}
+
+export interface MemoryModule {
+  currentGoal(): string | null;
+  setGoal(text: string | null): { goal: string | null };
+  state(): MemoryState;
+  summarizeNow(): ShortTermSummary | null;
 }
 
 export interface KnockbackDebugger {
@@ -337,6 +377,7 @@ export interface Agent {
   };
   events: EventStreamLike;
   inventory: InventoryModule;
+  memory: MemoryModule;
   orchestration: OrchestrationModule;
   pathing: PathingModule;
   safety: SafetyModule;

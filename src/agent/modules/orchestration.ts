@@ -4,6 +4,7 @@ import type {
   ChatHistoryEntry,
   ChatModule,
   EventStreamLike,
+  MemoryModule,
   MinecraftBot,
   OrchestrationModule,
   OrchestrationSnapshot,
@@ -52,6 +53,7 @@ interface OrchestrationContext {
   inventory: {
     items(): Array<{ count?: number | null; name?: string | null } | null>;
   };
+  memory: MemoryModule;
   safety: SafetyModule;
   world: WorldModule;
 }
@@ -377,6 +379,10 @@ export function createOrchestrationModule(
     requireSpawned(bot);
 
     const safetyStatus = safety.status(16);
+    const memoryState = context.memory.state();
+    const recentFailures = memoryState.working.filter((item) =>
+      item.tags.includes('failure'),
+    );
 
     return {
       self: {
@@ -396,16 +402,12 @@ export function createOrchestrationModule(
         safetyStatus,
         world,
       }),
-      memory: {
-        working: [],
-        shortTerm: [],
-        longTerm: [],
-      },
+      memory: memoryState,
       planning: {
-        currentGoal: undefined,
+        currentGoal: context.memory.currentGoal(),
         currentSkill: undefined,
         plan: [],
-        recentFailures: [],
+        recentFailures,
       },
     };
   }

@@ -4,6 +4,7 @@ import { createActionsModule } from './modules/actions';
 import { createChatModule } from './modules/chat';
 import { createCombatModule } from './modules/combat';
 import { createInventoryModule } from './modules/inventory';
+import { createMemoryModule } from './modules/memory';
 import { createOrchestrationModule } from './modules/orchestration';
 import { createPathingModule } from './modules/pathing';
 import { createSafetyModule } from './modules/safety';
@@ -39,14 +40,20 @@ export function createAgent(
   });
   const safety = createSafetyModule(bot, {
     combat,
+    events,
     pathing,
     world,
   });
   safety.enable();
+  const memory = createMemoryModule(bot, {
+    events,
+    safety,
+  });
   const orchestration = createOrchestrationModule(bot, {
     chat,
     events,
     inventory,
+    memory,
     safety,
     world,
   });
@@ -64,6 +71,7 @@ export function createAgent(
     },
     events,
     inventory,
+    memory,
     orchestration,
     pathing,
     safety,

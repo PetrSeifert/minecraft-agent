@@ -1,3 +1,4 @@
+import { instrumentAsyncOperation } from '../operationEvents';
 import {
   normalizeMinecraftName,
   resolveItem,
@@ -42,7 +43,7 @@ export function createInventoryModule(
       .reduce((sum, item) => sum + item.count, 0);
   }
 
-  async function equip(
+  async function equipOperation(
     name: string,
     destination = 'hand',
   ): Promise<SerializedItem | null> {
@@ -61,7 +62,7 @@ export function createInventoryModule(
     return serializeItem(item);
   }
 
-  async function toss(
+  async function tossOperation(
     name: string,
     countValue = 1,
   ): Promise<{ count: number; name: string }> {
@@ -78,6 +79,44 @@ export function createInventoryModule(
       name: itemDefinition.name,
     };
   }
+
+  const equip = instrumentAsyncOperation(events, {
+    action: 'inventory.equip',
+    failure: ([name, destination = 'hand'], error) => ({
+      priority: 8,
+      tags: ['inventory', 'equip'],
+      text: `Failed to equip ${name} to ${destination}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([name, destination = 'hand']) => ({
+      priority: 4,
+      tags: ['inventory', 'equip'],
+      text: `Equipping ${name} to ${destination}`,
+    }),
+    success: ([name, destination = 'hand'], item) => ({
+      priority: 6,
+      tags: ['inventory', 'equip'],
+      text: `Equipped ${item?.name ?? name} to ${destination}`,
+    }),
+  }, equipOperation);
+
+  const toss = instrumentAsyncOperation(events, {
+    action: 'inventory.toss',
+    failure: ([name, countValue = 1], error) => ({
+      priority: 8,
+      tags: ['inventory', 'toss'],
+      text: `Failed to toss ${countValue} ${name}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([name, countValue = 1]) => ({
+      priority: 4,
+      tags: ['inventory', 'toss'],
+      text: `Tossing ${countValue} ${name}`,
+    }),
+    success: (_args, result) => ({
+      priority: 6,
+      tags: ['inventory', 'toss'],
+      text: `Tossed ${result.count} ${result.name}`,
+    }),
+  }, tossOperation);
 
   function hotbarSlot(): number {
     return bot.quickBarSlot;

@@ -1,5 +1,6 @@
 import { Movements, goals, pathfinder } from 'mineflayer-pathfinder';
 
+import { instrumentAsyncOperation } from '../operationEvents';
 import { requireSpawned, serializeEntity, serializeVec3, toVec3 } from '../utils';
 
 import type {
@@ -35,6 +36,11 @@ const SUPPORT_SAMPLE_OFFSETS = [
 type LooseEmitter = {
   on(event: string, listener: (...args: any[]) => void): void;
 };
+
+function formatPosition(position: Vec3Like): string {
+  const target = toVec3(position).floored();
+  return `${target.x},${target.y},${target.z}`;
+}
 
 export function createPathingModule(
   bot: MinecraftBot,
@@ -345,7 +351,7 @@ export function createPathingModule(
     }
   });
 
-  async function goto(
+  async function gotoOperation(
     position: Vec3Like,
     range = 0,
     options: PathingOptions = {},
@@ -369,7 +375,7 @@ export function createPathingModule(
     }
   }
 
-  async function gotoBlock(
+  async function gotoBlockOperation(
     block: { name: string; position?: Vec3Like | null },
     range = 1,
     options: PathingOptions = {},
@@ -399,7 +405,7 @@ export function createPathingModule(
     }
   }
 
-  async function gotoLookAt(
+  async function gotoLookAtOperation(
     position: Vec3Like,
     reach = 4.5,
     options: PathingOptions = {},
@@ -420,7 +426,7 @@ export function createPathingModule(
     }
   }
 
-  async function gotoPlace(position: Vec3Like, options: PathingOptions = {}) {
+  async function gotoPlaceOperation(position: Vec3Like, options: PathingOptions = {}) {
     const pathfinderPlugin = await preparePathing(options);
     const target = toVec3(position).floored();
     const goal = new GoalPlaceBlock(target, bot.world, {
@@ -470,7 +476,7 @@ export function createPathingModule(
     };
   }
 
-  async function moveAwayFrom(
+  async function moveAwayFromOperation(
     position: Vec3Like,
     minDistance = 12,
     options: PathingOptions = {},
@@ -492,6 +498,101 @@ export function createPathingModule(
       holdPhysics('move_away_complete', 1200);
     }
   }
+
+  const goto = instrumentAsyncOperation(events, {
+    action: 'pathing.goto',
+    failure: ([position], error) => ({
+      priority: 8,
+      tags: ['pathing', 'movement', 'goto'],
+      text: `Failed to move to ${formatPosition(position)}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([position, range = 0]) => ({
+      priority: 4,
+      tags: ['pathing', 'movement', 'goto'],
+      text: `Moving to ${formatPosition(position)} with range ${range}`,
+    }),
+    success: (_args, result) => ({
+      priority: 6,
+      tags: ['pathing', 'movement', 'goto'],
+      text: `Reached ${result.position ? `${result.position.x},${result.position.y},${result.position.z}` : 'target'} within range ${result.range}`,
+    }),
+  }, gotoOperation);
+
+  const gotoBlock = instrumentAsyncOperation(events, {
+    action: 'pathing.gotoBlock',
+    failure: ([block], error) => ({
+      priority: 8,
+      tags: ['pathing', 'movement', 'goto_block'],
+      text: `Failed to move to ${block?.name ?? 'block'}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([block, range = 1]) => ({
+      priority: 4,
+      tags: ['pathing', 'movement', 'goto_block'],
+      text: `Moving to ${block?.name ?? 'block'} with range ${range}`,
+    }),
+    success: (_args, result) => ({
+      priority: 6,
+      tags: ['pathing', 'movement', 'goto_block'],
+      text: `Reached ${result.block} within range ${result.range}`,
+    }),
+  }, gotoBlockOperation);
+
+  const gotoLookAt = instrumentAsyncOperation(events, {
+    action: 'pathing.gotoLookAt',
+    failure: ([position], error) => ({
+      priority: 8,
+      tags: ['pathing', 'movement', 'look'],
+      text: `Failed to look at ${formatPosition(position)}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([position, reach = 4.5]) => ({
+      priority: 4,
+      tags: ['pathing', 'movement', 'look'],
+      text: `Moving into look range of ${formatPosition(position)} with reach ${reach}`,
+    }),
+    success: (_args, result) => ({
+      priority: 6,
+      tags: ['pathing', 'movement', 'look'],
+      text: `Reached look position for ${result.position ? `${result.position.x},${result.position.y},${result.position.z}` : 'target'}`,
+    }),
+  }, gotoLookAtOperation);
+
+  const gotoPlace = instrumentAsyncOperation(events, {
+    action: 'pathing.gotoPlace',
+    failure: ([position], error) => ({
+      priority: 8,
+      tags: ['pathing', 'movement', 'place'],
+      text: `Failed to reach placement spot at ${formatPosition(position)}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([position]) => ({
+      priority: 4,
+      tags: ['pathing', 'movement', 'place'],
+      text: `Moving to placement spot at ${formatPosition(position)}`,
+    }),
+    success: (_args, result) => ({
+      priority: 6,
+      tags: ['pathing', 'movement', 'place'],
+      text: `Reached placement spot at ${result.position ? `${result.position.x},${result.position.y},${result.position.z}` : 'target'}`,
+    }),
+  }, gotoPlaceOperation);
+
+  const moveAwayFrom = instrumentAsyncOperation(events, {
+    action: 'pathing.moveAwayFrom',
+    failure: ([position, minDistance = 12], error) => ({
+      priority: 8,
+      tags: ['pathing', 'movement', 'retreat'],
+      text: `Failed to move away from ${formatPosition(position)} to distance ${minDistance}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([position, minDistance = 12]) => ({
+      priority: 5,
+      tags: ['pathing', 'movement', 'retreat'],
+      text: `Moving away from ${formatPosition(position)} to distance ${minDistance}`,
+    }),
+    success: (_args, result) => ({
+      priority: 7,
+      tags: ['pathing', 'movement', 'retreat'],
+      text: `Retreated from ${result.threat ? `${result.threat.x},${result.threat.y},${result.threat.z}` : 'threat'} to distance ${result.minDistance}`,
+    }),
+  }, moveAwayFromOperation);
 
   function configure(options: Record<string, unknown> = {}) {
     Object.assign(pendingMovementOptions, options);

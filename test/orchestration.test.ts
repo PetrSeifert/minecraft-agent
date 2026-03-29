@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import test from 'node:test';
 
 import { Vec3 } from 'vec3';
 
+import { EventStream } from '../src/agent/eventStream';
+import { createMemoryModule } from '../src/agent/modules/memory';
 import {
   createOrchestrationModule,
   orchestrationInternals,
@@ -65,7 +68,7 @@ function createFakeBot(options: {
     };
   }
 
-  return {
+  return Object.assign(new EventEmitter(), {
     entity: {
       position: options.spawned === false ? null : basePosition,
     },
@@ -87,7 +90,7 @@ function createFakeBot(options: {
     time: {
       isDay: options.isDay ?? true,
     },
-  };
+  });
 }
 
 const {
@@ -209,6 +212,19 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
       chat: { history: () => [] },
       events: { recent: () => [] },
       inventory: { items: () => [] },
+      memory: {
+        currentGoal: () => null,
+        setGoal: () => ({ goal: null }),
+        state: () => ({
+          longTerm: [],
+          shortTerm: {
+            events: [],
+            summaries: [],
+          },
+          working: [],
+        }),
+        summarizeNow: () => null,
+      },
       safety: { status: () => ({ hostiles: [] }) },
       world: { nearbyEntities: () => [] },
     } as never,
@@ -220,6 +236,7 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
     { distance: 2.2, id: 100, name: 'zombie' },
     { distance: 6.7, id: 101, username: 'Steve' },
   ];
+  const events = new EventStream();
   const bot = createFakeBot({
     blocks: [
       createBlock('stone', new Vec3(10, 63, 10), { biome: 'plains' }),
@@ -243,6 +260,47 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
     ],
     isDay: false,
   });
+  const safety = {
+    status() {
+      return {
+        drowning: false,
+        hostiles: [entities[0]],
+        inLava: false,
+        mobAggro: false,
+        nearestThreat: {
+          name: 'zombie',
+        },
+        onFire: false,
+      };
+    },
+  };
+  const memory = createMemoryModule(bot as never, {
+    events,
+    safety: safety as never,
+  }, {
+    autoSummarize: false,
+  });
+
+  memory.setGoal('Gather wood');
+  events.push('chat:public', { text: 'Need wood', username: 'Alex' });
+  events.push('pathing:goal_reached', { reason: 'goal_reached' });
+  events.push('action:success', {
+    action: 'actions.craftItem',
+    tags: ['actions', 'craft'],
+    text: 'Crafted 4 planks',
+  });
+  events.push('action:failure', {
+    action: 'actions.mineBlockAt',
+    tags: ['actions', 'mine'],
+    text: 'Failed to mine oak_log: out of reach',
+  });
+  events.push('entity:spawn', {
+    name: 'zombie',
+    position: { x: 10, y: 64, z: 12 },
+    type: 'mob',
+  });
+  memory.summarizeNow();
+
   const orchestration = createOrchestrationModule(bot as never, {
     chat: {
       history(limit: number) {
@@ -252,31 +310,14 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
         ].slice(-limit);
       },
     },
-    events: {
-      recent(limit: number) {
-        return [
-          { payload: { text: 'Need wood', username: 'Alex' }, type: 'chat:public' },
-          { payload: { reason: 'goal_reached' }, type: 'pathing:goal_reached' },
-          { payload: { name: 'zombie', position: { x: 10, y: 64, z: 12 } }, type: 'entity:spawn' },
-        ].slice(-limit) as never;
-      },
-    },
+    events,
     inventory: {
       items() {
         return bot.inventory.items();
       },
     },
-    safety: {
-      status() {
-        return {
-          drowning: false,
-          hostiles: [entities[0]],
-          inLava: false,
-          mobAggro: false,
-          onFire: false,
-        };
-      },
-    },
+    memory,
+    safety: safety as never,
     world: {
       nearbyEntities({ limit = 10, matcher }: { limit?: number; matcher?: (entity: typeof entities[number]) => boolean } = {}) {
         return entities.filter((entity) => (matcher ? matcher(entity) : true)).slice(0, limit) as never;
@@ -317,16 +358,20 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
     'Night is coming',
   ]);
   assert.deepEqual(snapshot.perception.recentEvents, [
+    'goal:update',
     'pathing:goal_reached: goal_reached',
+    'action:success: Crafted 4 planks',
+    'action:failure: Failed to mine oak_log: out of reach',
     'entity:spawn: zombie @ 10,64,12',
   ]);
-  assert.deepEqual(snapshot.memory, {
-    longTerm: [],
-    shortTerm: [],
-    working: [],
-  });
-  assert.ok(Object.prototype.hasOwnProperty.call(snapshot.planning, 'currentGoal'));
+  assert.equal(snapshot.memory.shortTerm.events[0]?.type, 'goal_update');
+  assert.equal(snapshot.memory.shortTerm.events[1]?.type, 'dialogue_received');
+  assert.ok(snapshot.memory.shortTerm.summaries.length >= 1);
+  assert.equal(snapshot.memory.longTerm.length, 0);
+  assert.ok(snapshot.memory.working.some((item) => item.tags.includes('goal') && item.text === 'Gather wood'));
+  assert.ok(snapshot.memory.working.some((item) => item.tags.includes('failure')));
+  assert.equal(snapshot.planning.currentGoal, 'Gather wood');
   assert.ok(Object.prototype.hasOwnProperty.call(snapshot.planning, 'currentSkill'));
   assert.deepEqual(snapshot.planning.plan, []);
-  assert.deepEqual(snapshot.planning.recentFailures, []);
+  assert.ok(snapshot.planning.recentFailures.length >= 1);
 });
