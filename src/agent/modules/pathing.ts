@@ -1,4 +1,15 @@
-const { Movements, goals, pathfinder } = require('mineflayer-pathfinder');
+import { Movements, goals, pathfinder } from 'mineflayer-pathfinder';
+
+import { requireSpawned, serializeEntity, serializeVec3, toVec3 } from '../utils';
+
+import type {
+  EntityLike,
+  EventStreamLike,
+  MinecraftBot,
+  PathingModule,
+  PathingOptions,
+  Vec3Like,
+} from '../../types';
 
 const {
   GoalBlock,
@@ -10,9 +21,7 @@ const {
   GoalPlaceBlock,
 } = goals;
 
-const { requireSpawned, serializeEntity, serializeVec3, toVec3 } = require('../utils');
-
-const DEFAULT_MOVEMENT_OPTIONS = {};
+const DEFAULT_MOVEMENT_OPTIONS: Record<string, unknown> = {};
 const DEFAULT_PHYSICS_HOLD_MS = 1500;
 const FALL_START_VELOCITY = -0.08;
 const SUPPORT_SAMPLE_OFFSETS = [
@@ -21,25 +30,27 @@ const SUPPORT_SAMPLE_OFFSETS = [
   [-0.29, 0.29],
   [0.29, -0.29],
   [0.29, 0.29],
-];
+] as const;
 
-function createPathingModule(bot, events) {
-  let movements = null;
-  const pendingMovementOptions = { ...DEFAULT_MOVEMENT_OPTIONS };
+type LooseEmitter = {
+  on(event: string, listener: (...args: any[]) => void): void;
+};
+
+export function createPathingModule(
+  bot: MinecraftBot,
+  events: EventStreamLike,
+): PathingModule {
+  let movements: Movements | null = null;
+  const pendingMovementOptions: Record<string, unknown> = {
+    ...DEFAULT_MOVEMENT_OPTIONS,
+  };
   let pausedUntil = 0;
   let pathfinderLoaded = false;
-  let followState = null;
+  let followState: { entityId?: number | null; range: number } | null = null;
   let physicsHoldUntil = 0;
-  let physicsMonitorId = null;
-  let lastPhysicsState = bot.physicsEnabled;
+  let physicsMonitorId: NodeJS.Timeout | null = null;
 
-  function groundBlock() {
-    if (!bot.entity?.position) {
-      return null;
-    }
-
-    return bot.blockAt(bot.entity.position.floored().offset(0, -1, 0));
-  }
+  const pluginBot = bot as MinecraftBot & LooseEmitter;
 
   function supportSamplePositions() {
     if (!bot.entity?.position) {
@@ -51,7 +62,7 @@ function createPathingModule(bot, events) {
     );
   }
 
-  function motionMagnitude() {
+  function motionMagnitude(): number {
     const velocity = bot.entity?.velocity;
 
     if (!velocity) {
@@ -61,22 +72,22 @@ function createPathingModule(bot, events) {
     return Math.abs(velocity.x) + Math.abs(velocity.y) + Math.abs(velocity.z);
   }
 
-  function hasSolidGroundBelow() {
+  function hasSolidGroundBelow(): boolean {
     return supportSamplePositions().some((position) => {
       const block = bot.blockAt(position);
       return block?.boundingBox === 'block';
     });
   }
 
-  function isSupportSamplePosition(position) {
+  function isSupportSamplePosition(position: { equals(other: unknown): boolean } | null): boolean {
     if (!position) {
       return false;
     }
 
-    return supportSamplePositions().some((sample) => sample.equals(position));
+    return supportSamplePositions().some((sample) => sample.equals(position as never));
   }
 
-  function forceUnsupportedGroundFall(reason = 'unsupported_ground') {
+  function forceUnsupportedGroundFall(reason = 'unsupported_ground'): boolean {
     if (!bot.entity?.velocity) {
       return false;
     }
@@ -103,12 +114,12 @@ function createPathingModule(bot, events) {
     return changed;
   }
 
-  function isPhysicallyUnstable() {
+  function isPhysicallyUnstable(): boolean {
     if (!bot.entity?.position) {
       return false;
     }
 
-    if (bot.entity.isInWater) {
+    if ((bot.entity as any).isInWater) {
       return true;
     }
 
@@ -123,7 +134,7 @@ function createPathingModule(bot, events) {
     return motionMagnitude() > 0.02;
   }
 
-  function resetMotionState(reason = 'reset_motion') {
+  function resetMotionState(reason = 'reset_motion'): void {
     bot.clearControlStates();
     bot.jumpQueued = false;
 
@@ -134,7 +145,7 @@ function createPathingModule(bot, events) {
     events.push('physics:motion_reset', { reason });
   }
 
-  function setPhysicsEnabled(enabled, reason) {
+  function setPhysicsEnabled(enabled: boolean, reason: string): void {
     if (bot.physicsEnabled === enabled) {
       return;
     }
@@ -143,17 +154,15 @@ function createPathingModule(bot, events) {
       resetMotionState(`${reason}:before_enable`);
       bot.physicsEnabled = true;
       events.push('physics:enabled', { reason });
-      lastPhysicsState = true;
       return;
     }
 
     bot.clearControlStates();
     bot.physicsEnabled = false;
     events.push('physics:disabled', { reason });
-    lastPhysicsState = false;
   }
 
-  function holdPhysics(reason, durationMs = DEFAULT_PHYSICS_HOLD_MS) {
+  function holdPhysics(reason: string, durationMs = DEFAULT_PHYSICS_HOLD_MS) {
     physicsHoldUntil = Math.max(physicsHoldUntil, Date.now() + durationMs);
     setPhysicsEnabled(true, reason);
 
@@ -163,7 +172,7 @@ function createPathingModule(bot, events) {
     };
   }
 
-  function clearFollowState(reason = 'follow_cleared') {
+  function clearFollowState(reason = 'follow_cleared'): void {
     if (!followState) {
       return;
     }
@@ -172,7 +181,7 @@ function createPathingModule(bot, events) {
     events.push('pathing:follow_stopped', { reason });
   }
 
-  function ensurePathfinderLoaded() {
+  function ensurePathfinderLoaded(): void {
     if (pathfinderLoaded) {
       return;
     }
@@ -192,7 +201,7 @@ function createPathingModule(bot, events) {
     return bot.pathfinder;
   }
 
-  function ensureMovements() {
+  function ensureMovements(): Movements {
     if (!movements) {
       movements = new Movements(bot);
     }
@@ -202,14 +211,14 @@ function createPathingModule(bot, events) {
     return movements;
   }
 
-  function refreshMovements() {
+  function refreshMovements(): Movements {
     movements = new Movements(bot);
     Object.assign(movements, pendingMovementOptions);
     getPathfinder().setMovements(movements);
     return movements;
   }
 
-  function syncPhysicsState(reason = 'monitor') {
+  function syncPhysicsState(reason = 'monitor'): void {
     const hasActivePathGoal = Boolean(bot.pathfinder?.goal);
     const shouldHold =
       Date.now() < physicsHoldUntil ||
@@ -224,7 +233,7 @@ function createPathingModule(bot, events) {
     setPhysicsEnabled(false, reason);
   }
 
-  async function preparePathing(options = {}) {
+  async function preparePathing(options: PathingOptions = {}) {
     requireSpawned(bot);
 
     const remainingPauseMs = pausedUntil - Date.now();
@@ -266,19 +275,19 @@ function createPathingModule(bot, events) {
     }
   });
 
-  bot.on('goal_reached', () => {
+  pluginBot.on('goal_reached', () => {
     events.push('pathing:goal_reached', null);
     clearFollowState('goal_reached');
     holdPhysics('goal_reached', 1000);
   });
 
-  bot.on('goal_updated', (goal) => {
+  pluginBot.on('goal_updated', (goal) => {
     events.push('pathing:goal_updated', {
       goal: goal?.constructor?.name ?? null,
     });
   });
 
-  bot.on('path_update', (result) => {
+  pluginBot.on('path_update', (result) => {
     events.push('pathing:path_update', {
       status: result?.status ?? null,
       pathLength: result?.path?.length ?? null,
@@ -286,12 +295,12 @@ function createPathingModule(bot, events) {
     });
   });
 
-  bot.on('path_reset', (reason) => {
+  pluginBot.on('path_reset', (reason) => {
     events.push('pathing:path_reset', { reason });
     holdPhysics(`path_reset:${reason}`, 1500);
   });
 
-  bot.on('path_stop', () => {
+  pluginBot.on('path_stop', () => {
     events.push('pathing:path_stop', null);
     clearFollowState('path_stop');
     holdPhysics('path_stop', 1000);
@@ -336,7 +345,11 @@ function createPathingModule(bot, events) {
     }
   });
 
-  async function goto(position, range = 0, options = {}) {
+  async function goto(
+    position: Vec3Like,
+    range = 0,
+    options: PathingOptions = {},
+  ) {
     const pathfinderPlugin = await preparePathing(options);
     const target = toVec3(position).floored();
     const goal =
@@ -356,14 +369,18 @@ function createPathingModule(bot, events) {
     }
   }
 
-  async function gotoBlock(block, range = 1, options = {}) {
+  async function gotoBlock(
+    block: { name: string; position?: Vec3Like | null },
+    range = 1,
+    options: PathingOptions = {},
+  ) {
     const pathfinderPlugin = await preparePathing(options);
 
     if (!block?.position) {
       throw new Error('A block with a position is required');
     }
 
-    const target = block.position.floored();
+    const target = toVec3(block.position).floored();
     const goal =
       range <= 1
         ? new GoalGetToBlock(target.x, target.y, target.z)
@@ -382,7 +399,11 @@ function createPathingModule(bot, events) {
     }
   }
 
-  async function gotoLookAt(position, reach = 4.5, options = {}) {
+  async function gotoLookAt(
+    position: Vec3Like,
+    reach = 4.5,
+    options: PathingOptions = {},
+  ) {
     const pathfinderPlugin = await preparePathing(options);
     const target = toVec3(position).floored();
     const goal = new GoalLookAtBlock(target, bot.world, { reach });
@@ -399,13 +420,13 @@ function createPathingModule(bot, events) {
     }
   }
 
-  async function gotoPlace(position, options = {}) {
+  async function gotoPlace(position: Vec3Like, options: PathingOptions = {}) {
     const pathfinderPlugin = await preparePathing(options);
     const target = toVec3(position).floored();
     const goal = new GoalPlaceBlock(target, bot.world, {
       range: options.range ?? 4,
       LOS: options.LOS ?? true,
-    });
+    } as never);
 
     try {
       await pathfinderPlugin.goto(goal);
@@ -419,7 +440,7 @@ function createPathingModule(bot, events) {
     }
   }
 
-  function followEntity(entity, range = 2) {
+  function followEntity(entity: EntityLike, range = 2) {
     requireSpawned(bot);
 
     if (!entity?.position) {
@@ -436,7 +457,7 @@ function createPathingModule(bot, events) {
       range: followRange,
     };
 
-    pathfinderPlugin.setGoal(new GoalFollow(entity, followRange), true);
+    pathfinderPlugin.setGoal(new GoalFollow(entity as never, followRange), true);
 
     events.push('pathing:follow_started', {
       entity: serializeEntity(entity),
@@ -449,7 +470,11 @@ function createPathingModule(bot, events) {
     };
   }
 
-  async function moveAwayFrom(position, minDistance = 12, options = {}) {
+  async function moveAwayFrom(
+    position: Vec3Like,
+    minDistance = 12,
+    options: PathingOptions = {},
+  ) {
     const pathfinderPlugin = await preparePathing(options);
     const threat = toVec3(position).floored();
     const goal = new GoalInvert(
@@ -468,7 +493,7 @@ function createPathingModule(bot, events) {
     }
   }
 
-  function configure(options = {}) {
+  function configure(options: Record<string, unknown> = {}) {
     Object.assign(pendingMovementOptions, options);
     ensurePathfinderLoaded();
     const nextMovements = ensureMovements();
@@ -485,7 +510,7 @@ function createPathingModule(bot, events) {
     };
   }
 
-  function stop() {
+  function stop(): void {
     clearFollowState('stop');
 
     if (bot.pathfinder) {
@@ -561,13 +586,23 @@ function createPathingModule(bot, events) {
       ready: true,
       thinkTimeout: pathfinderPlugin.thinkTimeout,
       tickTimeout: pathfinderPlugin.tickTimeout,
-      searchRadius: pathfinderPlugin.searchRadius,
+      searchRadius: (pathfinderPlugin as any).searchRadius,
       movement: {
-        allow1by1towers: movements?.allow1by1towers ?? pendingMovementOptions.allow1by1towers,
-        allowParkour: movements?.allowParkour ?? pendingMovementOptions.allowParkour,
-        allowSprinting: movements?.allowSprinting ?? pendingMovementOptions.allowSprinting,
-        canDig: movements?.canDig ?? pendingMovementOptions.canDig,
-        maxDropDown: movements?.maxDropDown ?? pendingMovementOptions.maxDropDown,
+        allow1by1towers:
+          movements?.allow1by1towers ??
+          (pendingMovementOptions.allow1by1towers as boolean | undefined),
+        allowParkour:
+          movements?.allowParkour ??
+          (pendingMovementOptions.allowParkour as boolean | undefined),
+        allowSprinting:
+          movements?.allowSprinting ??
+          (pendingMovementOptions.allowSprinting as boolean | undefined),
+        canDig:
+          movements?.canDig ??
+          (pendingMovementOptions.canDig as boolean | undefined),
+        maxDropDown:
+          movements?.maxDropDown ??
+          (pendingMovementOptions.maxDropDown as number | undefined),
       },
       follow: followState
         ? {
@@ -596,7 +631,3 @@ function createPathingModule(bot, events) {
     stop,
   };
 }
-
-module.exports = {
-  createPathingModule,
-};

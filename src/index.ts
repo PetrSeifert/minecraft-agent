@@ -1,7 +1,7 @@
-const { createBot } = require('./bot/createBot');
-const { loadConfig } = require('./config');
+import { createBot } from './bot/createBot';
+import { loadConfig } from './config';
 
-function main() {
+function main(): void {
   const config = loadConfig();
   const authLabel = config.password ? `${config.auth}:password` : config.auth;
 
@@ -14,7 +14,8 @@ function main() {
 
 try {
   main();
-} catch (error) {
-  console.error('[startup] Failed to start bot:', error.message);
+} catch (error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error('[startup] Failed to start bot:', message);
   process.exitCode = 1;
 }

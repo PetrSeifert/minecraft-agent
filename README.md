@@ -2,6 +2,8 @@
 
 Minimal Mineflayer starter for a modular Minecraft agent.
 
+The project now uses TypeScript for source, tests, and typechecking while still running directly in Node via `tsx`.
+
 ## Setup
 
 1. Copy `.env.example` to `.env`.
@@ -10,6 +12,12 @@ Minimal Mineflayer starter for a modular Minecraft agent.
 
 ```bash
 npm start
+```
+
+To run the compiler checks:
+
+```bash
+npm run typecheck
 ```
 
 ## Environment

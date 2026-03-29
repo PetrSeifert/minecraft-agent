@@ -1,25 +1,30 @@
-const { Vec3 } = require('vec3');
-const { PlayerState } = require('prismarine-physics');
+import { PlayerState } from 'prismarine-physics';
+import { Vec3 } from 'vec3';
 
-function isFiniteNumber(value) {
+import type { MinecraftBot, PhysicsStateLike } from '../types';
+
+function isFiniteNumber(value: unknown): value is number {
   return Number.isFinite(value);
 }
 
-function isFiniteVec3(vec) {
+function isFiniteVec3(vec: Vec3 | null | undefined): vec is Vec3 {
+  if (!vec) {
+    return false;
+  }
+
   return (
-    vec &&
     isFiniteNumber(vec.x) &&
     isFiniteNumber(vec.y) &&
     isFiniteNumber(vec.z)
   );
 }
 
-function cloneVec3(vec, fallback = new Vec3(0, 0, 0)) {
+function cloneVec3(vec: Vec3 | null | undefined, fallback = new Vec3(0, 0, 0)): Vec3 {
   const source = isFiniteVec3(vec) ? vec : fallback;
   return new Vec3(source.x, source.y, source.z);
 }
 
-function sanitizeControl(control = {}) {
+function sanitizeControl(control: Record<string, boolean> = {}) {
   return {
     back: Boolean(control.back),
     forward: Boolean(control.forward),
@@ -31,12 +36,12 @@ function sanitizeControl(control = {}) {
   };
 }
 
-function sanitizeAttributes(attributes) {
+function sanitizeAttributes(attributes: PhysicsStateLike['attributes']) {
   if (!attributes || typeof attributes !== 'object') {
     return {};
   }
 
-  const safe = {};
+  const safe: Record<string, { modifiers: unknown[]; value: number }> = {};
 
   for (const [key, value] of Object.entries(attributes)) {
     if (!value || typeof value !== 'object') {
@@ -56,8 +61,11 @@ function sanitizeAttributes(attributes) {
   return safe;
 }
 
-function sanitizeState(bot, source) {
-  const safe = new PlayerState(bot, sanitizeControl(source?.control));
+function sanitizeState(bot: MinecraftBot, source?: PhysicsStateLike): PhysicsStateLike {
+  const safe = new PlayerState(
+    bot,
+    sanitizeControl(source?.control),
+  ) as PhysicsStateLike;
 
   safe.pos = cloneVec3(source?.pos, bot.entity?.position);
   safe.vel = cloneVec3(source?.vel, bot.entity?.velocity);
@@ -90,11 +98,11 @@ function sanitizeState(bot, source) {
   return safe;
 }
 
-function hasFinitePhysicsState(state) {
+function hasFinitePhysicsState(state: PhysicsStateLike | undefined): boolean {
   return isFiniteVec3(state?.pos) && isFiniteVec3(state?.vel);
 }
 
-function installPhysicsCompat(bot) {
+export function installPhysicsCompat(bot: MinecraftBot): boolean {
   if (!bot.physics?.simulatePlayer) {
     return false;
   }
@@ -104,6 +112,9 @@ function installPhysicsCompat(bot) {
   }
 
   const originalSimulatePlayer = bot.physics.simulatePlayer.bind(bot.physics);
+  const physicsEmitter = bot as MinecraftBot & {
+    emit(event: string, payload: unknown): void;
+  };
   bot.physics.__compatWrappedSimulatePlayer = true;
 
   bot.physics.simulatePlayer = (state, world) => {
@@ -117,33 +128,33 @@ function installPhysicsCompat(bot) {
     const recovered = originalSimulatePlayer(sanitizeState(bot, baseline), world);
 
     if (hasFinitePhysicsState(recovered)) {
-      bot.emit('physicsAnomaly', {
+      physicsEmitter.emit('physicsAnomaly', {
         kind: 'recovered_invalid_state',
         position: {
-          x: recovered.pos.x,
-          y: recovered.pos.y,
-          z: recovered.pos.z,
+          x: recovered.pos!.x,
+          y: recovered.pos!.y,
+          z: recovered.pos!.z,
         },
         velocity: {
-          x: recovered.vel.x,
-          y: recovered.vel.y,
-          z: recovered.vel.z,
+          x: recovered.vel!.x,
+          y: recovered.vel!.y,
+          z: recovered.vel!.z,
         },
       });
       return recovered;
     }
 
-    bot.emit('physicsAnomaly', {
+    physicsEmitter.emit('physicsAnomaly', {
       kind: 'fallback_preserved_state',
       position: {
-        x: baseline.pos.x,
-        y: baseline.pos.y,
-        z: baseline.pos.z,
+        x: baseline.pos!.x,
+        y: baseline.pos!.y,
+        z: baseline.pos!.z,
       },
       velocity: {
-        x: baseline.vel.x,
-        y: baseline.vel.y,
-        z: baseline.vel.z,
+        x: baseline.vel!.x,
+        y: baseline.vel!.y,
+        z: baseline.vel!.z,
       },
     });
 
@@ -152,7 +163,3 @@ function installPhysicsCompat(bot) {
 
   return true;
 }
-
-module.exports = {
-  installPhysicsCompat,
-};

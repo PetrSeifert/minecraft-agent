@@ -1,32 +1,46 @@
-const mineflayer = require('mineflayer');
-const readline = require('node:readline');
-const { createAgent } = require('../agent');
-const { installPhysicsCompat } = require('./installPhysicsCompat');
-const { installProtocolCompat } = require('./installProtocolCompat');
-const { createTerminal } = require('./terminal');
+import * as readline from 'node:readline';
 
-function formatError(error) {
+import { createBot as createMineflayerBot } from 'mineflayer';
+
+import { createAgent } from '../agent';
+import { installPhysicsCompat } from './installPhysicsCompat';
+import { installProtocolCompat } from './installProtocolCompat';
+import { createTerminal } from './terminal';
+
+import type { BotConfig, MinecraftBot } from '../types';
+
+function formatError(error: unknown): string {
   if (!error) {
     return 'Unknown error';
   }
 
-  if (error.errors && Array.isArray(error.errors) && error.errors.length > 0) {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'errors' in error &&
+    Array.isArray(error.errors) &&
+    error.errors.length > 0
+  ) {
     return error.errors
-      .map((nestedError) => nestedError.message || String(nestedError))
+      .map((nestedError) =>
+        nestedError instanceof Error ? nestedError.message : String(nestedError),
+      )
       .join(' | ');
   }
 
-  return error.message || String(error);
+  return error instanceof Error ? error.message : String(error);
 }
 
-function createBot(config) {
-  const bot = mineflayer.createBot({
-    ...config,
+export function createBot(config: BotConfig): MinecraftBot {
+  const { debugKnockback, debugKnockbackFile, ...botOptions } = config;
+
+  const bot = createMineflayerBot({
+    ...botOptions,
     hideErrors: true,
     physicsEnabled: false,
-  });
+  } as never) as MinecraftBot;
 
-  function ensurePhysicsCompat() {
+  function ensurePhysicsCompat(): void {
     installPhysicsCompat(bot);
   }
 
@@ -45,7 +59,7 @@ function createBot(config) {
     output: process.stdout,
   });
   let hasLoggedIn = false;
-  let lastErrorText = null;
+  let lastErrorText: string | null = null;
 
   bot.once('login', () => {
     hasLoggedIn = true;
@@ -57,8 +71,8 @@ function createBot(config) {
     console.log(
       `[bot] Spawned at x=${x.toFixed(1)} y=${y.toFixed(1)} z=${z.toFixed(1)}`,
     );
-    if (config.debugKnockback) {
-      console.log(`[debug] Knockback logging enabled: ${config.debugKnockbackFile}`);
+    if (debugKnockback) {
+      console.log(`[debug] Knockback logging enabled: ${debugKnockbackFile}`);
     }
     console.log('[bot] Type chat into this terminal, or use /help for agent commands');
   });
@@ -103,7 +117,3 @@ function createBot(config) {
 
   return bot;
 }
-
-module.exports = {
-  createBot,
-};

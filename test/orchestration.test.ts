@@ -1,29 +1,21 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { Vec3 } = require('vec3');
+import assert from 'node:assert/strict';
+import test from 'node:test';
 
-const {
+import { Vec3 } from 'vec3';
+
+import {
   createOrchestrationModule,
   orchestrationInternals,
-} = require('../src/agent/modules/orchestration');
+} from '../src/agent/modules/orchestration';
 
-const {
-  aggregateInventoryCounts,
-  classifyRiskLevel,
-  collectEquippedItemNames,
-  extractContainerCues,
-  extractShelterCues,
-  formatChatHistoryEntry,
-  formatEntitySummary,
-  formatEventSummary,
-  isCurrentPositionEnclosed,
-} = orchestrationInternals;
-
-function positionKey(position) {
+function positionKey(position: Vec3): string {
   return `${position.x},${position.y},${position.z}`;
 }
 
-function createBlock(name, position, options = {}) {
+function createBlock(name: string, position: Vec3, options: {
+  biome?: string;
+  boundingBox?: string;
+} = {}) {
   return {
     biome: options.biome ? { name: options.biome } : null,
     boundingBox: options.boundingBox ?? 'block',
@@ -32,9 +24,19 @@ function createBlock(name, position, options = {}) {
   };
 }
 
-function createFakeBot(options = {}) {
-  const blocks = new Map();
-  const equipmentSlots = {
+function createFakeBot(options: {
+  blocks?: Array<ReturnType<typeof createBlock>>;
+  equipment?: Record<string, string>;
+  food?: number;
+  health?: number;
+  heldItem?: string;
+  inventoryItems?: Array<{ count: number; name: string }>;
+  isDay?: boolean;
+  position?: Vec3;
+  spawned?: boolean;
+} = {}) {
+  const blocks = new Map<string, ReturnType<typeof createBlock>>();
+  const equipmentSlots: Record<string, number> = {
     hand: 36,
     head: 5,
     torso: 6,
@@ -42,7 +44,7 @@ function createFakeBot(options = {}) {
     feet: 8,
     'off-hand': 45,
   };
-  const inventorySlots = [];
+  const inventorySlots: Array<{ name: string; slot: number } | undefined> = [];
   const inventoryItems = options.inventoryItems ?? [];
   const basePosition = options.position ?? new Vec3(10, 64, 10);
 
@@ -68,7 +70,7 @@ function createFakeBot(options = {}) {
       position: options.spawned === false ? null : basePosition,
     },
     food: options.food ?? 20,
-    getEquipmentDestSlot(destination) {
+    getEquipmentDestSlot(destination: string) {
       return equipmentSlots[destination];
     },
     health: options.health ?? 20,
@@ -79,7 +81,7 @@ function createFakeBot(options = {}) {
       },
       slots: inventorySlots,
     },
-    blockAt(position) {
+    blockAt(position: Vec3) {
       return blocks.get(positionKey(position.floored())) ?? null;
     },
     time: {
@@ -88,12 +90,24 @@ function createFakeBot(options = {}) {
   };
 }
 
+const {
+  aggregateInventoryCounts,
+  classifyRiskLevel,
+  collectEquippedItemNames,
+  extractContainerCues,
+  extractShelterCues,
+  formatChatHistoryEntry,
+  formatEntitySummary,
+  formatEventSummary,
+  isCurrentPositionEnclosed,
+} = orchestrationInternals;
+
 test('aggregateInventoryCounts totals item stacks by name', () => {
   const counts = aggregateInventoryCounts([
     { count: 3, name: 'oak_log' },
     { count: 5, name: 'oak_log' },
     { count: 2, name: 'bread' },
-    { count: NaN, name: 'broken' },
+    { count: Number.NaN, name: 'broken' },
     null,
   ]);
 
@@ -113,7 +127,7 @@ test('collectEquippedItemNames includes held and equipped slots without duplicat
     heldItem: 'torch',
   });
 
-  assert.deepEqual(collectEquippedItemNames(bot), [
+  assert.deepEqual(collectEquippedItemNames(bot as never), [
     'torch',
     'iron_helmet',
     'shield',
@@ -121,10 +135,10 @@ test('collectEquippedItemNames includes held and equipped slots without duplicat
 });
 
 test('classifyRiskLevel maps safety and health thresholds to low medium high', () => {
-  assert.equal(classifyRiskLevel({ hostiles: [] }, 20), 'low');
-  assert.equal(classifyRiskLevel({ hostiles: [{ id: 1 }] }, 20), 'medium');
-  assert.equal(classifyRiskLevel({ hostiles: [], mobAggro: true }, 20), 'high');
-  assert.equal(classifyRiskLevel({ hostiles: [] }, 8), 'high');
+  assert.equal(classifyRiskLevel({ hostiles: [] } as never, 20), 'low');
+  assert.equal(classifyRiskLevel({ hostiles: [{ id: 1 }] } as never, 20), 'medium');
+  assert.equal(classifyRiskLevel({ hostiles: [], mobAggro: true } as never, 20), 'high');
+  assert.equal(classifyRiskLevel({ hostiles: [] } as never, 8), 'high');
 });
 
 test('format helpers render compact chat event and entity summaries', () => {
@@ -132,6 +146,7 @@ test('format helpers render compact chat event and entity summaries', () => {
     formatChatHistoryEntry({
       channel: 'public',
       text: 'hello',
+      timestamp: new Date().toISOString(),
       username: 'Alex',
     }),
     '<Alex> hello',
@@ -183,20 +198,20 @@ test('isCurrentPositionEnclosed requires ground headroom and a roof', () => {
     blocks: [createBlock('stone', new Vec3(10, 63, 10), { biome: 'plains' })],
   });
 
-  assert.equal(isCurrentPositionEnclosed(enclosedBot), true);
-  assert.equal(isCurrentPositionEnclosed(openBot), false);
+  assert.equal(isCurrentPositionEnclosed(enclosedBot as never), true);
+  assert.equal(isCurrentPositionEnclosed(openBot as never), false);
 });
 
 test('snapshot returns the full AgentState contract and throws before spawn', () => {
   const unspawned = createOrchestrationModule(
-    createFakeBot({ spawned: false }),
+    createFakeBot({ spawned: false }) as never,
     {
       chat: { history: () => [] },
       events: { recent: () => [] },
       inventory: { items: () => [] },
       safety: { status: () => ({ hostiles: [] }) },
       world: { nearbyEntities: () => [] },
-    },
+    } as never,
   );
 
   assert.throws(() => unspawned.snapshot(), /Bot has not spawned yet/);
@@ -228,22 +243,22 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
     ],
     isDay: false,
   });
-  const orchestration = createOrchestrationModule(bot, {
+  const orchestration = createOrchestrationModule(bot as never, {
     chat: {
-      history(limit) {
+      history(limit: number) {
         return [
-          { channel: 'public', text: 'Need wood', username: 'Alex' },
-          { channel: 'server', text: 'Night is coming' },
+          { channel: 'public', text: 'Need wood', timestamp: new Date().toISOString(), username: 'Alex' },
+          { channel: 'server', text: 'Night is coming', timestamp: new Date().toISOString(), username: null },
         ].slice(-limit);
       },
     },
     events: {
-      recent(limit) {
+      recent(limit: number) {
         return [
           { payload: { text: 'Need wood', username: 'Alex' }, type: 'chat:public' },
           { payload: { reason: 'goal_reached' }, type: 'pathing:goal_reached' },
           { payload: { name: 'zombie', position: { x: 10, y: 64, z: 12 } }, type: 'entity:spawn' },
-        ].slice(-limit);
+        ].slice(-limit) as never;
       },
     },
     inventory: {
@@ -263,11 +278,11 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
       },
     },
     world: {
-      nearbyEntities({ limit = 10, matcher } = {}) {
-        return entities.filter((entity) => (matcher ? matcher(entity) : true)).slice(0, limit);
+      nearbyEntities({ limit = 10, matcher }: { limit?: number; matcher?: (entity: typeof entities[number]) => boolean } = {}) {
+        return entities.filter((entity) => (matcher ? matcher(entity) : true)).slice(0, limit) as never;
       },
     },
-  });
+  } as never);
 
   const snapshot = orchestration.snapshot();
 

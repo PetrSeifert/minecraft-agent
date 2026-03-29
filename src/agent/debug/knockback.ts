@@ -1,9 +1,20 @@
-const fs = require('node:fs');
-const path = require('node:path');
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
-const { serializeVec3 } = require('../utils');
+import { serializeVec3 } from '../utils';
 
-function serializeControls(bot) {
+import type {
+  BlockLike,
+  KnockbackDebugger,
+  MinecraftBot,
+  PathingModule,
+} from '../../types';
+
+type LooseEmitter = {
+  on(event: string, listener: (...args: any[]) => void): void;
+};
+
+function serializeControls(bot: MinecraftBot) {
   return {
     back: bot.controlState?.back ?? false,
     forward: bot.controlState?.forward ?? false,
@@ -15,7 +26,11 @@ function serializeControls(bot) {
   };
 }
 
-function blockSummary(block) {
+function blockSummary(block: BlockLike | null): {
+  boundingBox: string | null;
+  name: string | null;
+  position: ReturnType<typeof serializeVec3>;
+} | null {
   if (!block) {
     return null;
   }
@@ -23,11 +38,15 @@ function blockSummary(block) {
   return {
     boundingBox: block.boundingBox ?? null,
     name: block.name ?? null,
-    position: serializeVec3(block.position),
+    position: serializeVec3(block.position ?? null),
   };
 }
 
-function createKnockbackDebugger(bot, pathing, options = {}) {
+export function createKnockbackDebugger(
+  bot: MinecraftBot,
+  pathing: PathingModule,
+  options: { enabled?: boolean; filePath?: string } = {},
+): KnockbackDebugger {
   const enabled = Boolean(options.enabled);
 
   if (!enabled) {
@@ -50,8 +69,12 @@ function createKnockbackDebugger(bot, pathing, options = {}) {
     const groundPosition = feetPosition?.offset?.(0, -1, 0) ?? null;
 
     return {
-      blockFeet: blockSummary(feetPosition ? bot.blockAt(feetPosition) : null),
-      blockGround: blockSummary(groundPosition ? bot.blockAt(groundPosition) : null),
+      blockFeet: blockSummary(
+        feetPosition ? ((bot.blockAt(feetPosition) as BlockLike | null) ?? null) : null,
+      ),
+      blockGround: blockSummary(
+        groundPosition ? ((bot.blockAt(groundPosition) as BlockLike | null) ?? null) : null,
+      ),
       controlState: serializeControls(bot),
       food: bot.food ?? null,
       health: bot.health ?? null,
@@ -60,12 +83,12 @@ function createKnockbackDebugger(bot, pathing, options = {}) {
       oxygenLevel: bot.oxygenLevel ?? null,
       pathing: pathing.status(),
       physicsEnabled: bot.physicsEnabled,
-      position: serializeVec3(bot.entity?.position),
-      velocity: serializeVec3(bot.entity?.velocity),
+      position: serializeVec3(bot.entity?.position ?? null),
+      velocity: serializeVec3(bot.entity?.velocity ?? null),
     };
   }
 
-  function write(event, payload = {}) {
+  function write(event: string, payload: unknown = {}): void {
     const line = JSON.stringify({
       event,
       payload,
@@ -77,10 +100,12 @@ function createKnockbackDebugger(bot, pathing, options = {}) {
     fs.appendFileSync(filePath, `${line}\n`);
   }
 
-  function sampleTicks(reason, count = 30) {
+  function sampleTicks(reason: string, count = 30): void {
     sampleTicksRemaining = Math.max(sampleTicksRemaining, count);
     write('sample_ticks_start', { count, reason });
   }
+
+  const pluginBot = bot as MinecraftBot & LooseEmitter;
 
   bot.on('entityHurt', (entity) => {
     if (entity?.id !== bot.entity?.id) {
@@ -92,7 +117,7 @@ function createKnockbackDebugger(bot, pathing, options = {}) {
   });
 
   bot._client.on('entity_velocity', (packet) => {
-    if (packet.entityId !== bot.entity?.id) {
+    if ((packet as { entityId?: number }).entityId !== bot.entity?.id) {
       return;
     }
 
@@ -115,7 +140,7 @@ function createKnockbackDebugger(bot, pathing, options = {}) {
     sampleTicks('forced_move', 20);
   });
 
-  bot.on('physicsTick', () => {
+  pluginBot.on('physicsTick', () => {
     if (sampleTicksRemaining <= 0) {
       return;
     }
@@ -132,7 +157,7 @@ function createKnockbackDebugger(bot, pathing, options = {}) {
     write('move');
   });
 
-  bot.on('physicsAnomaly', (details) => {
+  pluginBot.on('physicsAnomaly', (details) => {
     write('physics_anomaly', details);
     sampleTicks('physics_anomaly', 20);
   });
@@ -158,7 +183,3 @@ function createKnockbackDebugger(bot, pathing, options = {}) {
     write,
   };
 }
-
-module.exports = {
-  createKnockbackDebugger,
-};

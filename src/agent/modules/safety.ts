@@ -1,6 +1,15 @@
-const { Vec3 } = require('vec3');
+import { isHostileEntity, serializeEntity, serializeVec3, toVec3 } from '../utils';
 
-const { isHostileEntity, serializeEntity, serializeVec3 } = require('../utils');
+import type {
+  CombatModule,
+  EntityLike,
+  MinecraftBot,
+  PathingModule,
+  SafetyModule,
+  SafetyStatus,
+  Vec3Like,
+  WorldModule,
+} from '../../types';
 
 const FIRE_BLOCK_NAMES = new Set([
   'campfire',
@@ -29,28 +38,37 @@ const HIGH_DANGER_HOSTILE_NAMES = new Set([
   'warden',
 ]);
 
-function createSafetyModule(bot, context) {
-  const { combat, pathing, world } = context;
+interface SafetyContext {
+  combat: CombatModule;
+  pathing: PathingModule;
+  world: WorldModule;
+}
+
+export function createSafetyModule(
+  bot: MinecraftBot,
+  context: SafetyContext,
+): SafetyModule {
+  const { pathing, world } = context;
 
   let monitorEnabled = false;
-  let monitorInterval = null;
+  let monitorInterval: NodeJS.Timeout | null = null;
   let escapeInProgress = false;
   let lastSelfHurtAt = 0;
-  let lastEscape = null;
+  let lastEscape: ReturnType<SafetyModule['status']>['lastEscape'] = null;
 
-  function delay(ms) {
+  function delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  function blockNameAt(position) {
-    return bot.blockAt(position)?.name ?? null;
+  function blockNameAt(position: Vec3Like): string | null {
+    return bot.blockAt(position as never)?.name ?? null;
   }
 
-  function isHazardousBlockName(name) {
+  function isHazardousBlockName(name: string | null): boolean {
     return name ? FIRE_BLOCK_NAMES.has(name) : false;
   }
 
-  function entityFireFlag() {
+  function entityFireFlag(): boolean {
     const flags = Number(bot.entity?.metadata?.[0] ?? 0);
     return (flags & 0x01) !== 0;
   }
@@ -86,7 +104,7 @@ function createSafetyModule(bot, context) {
 
   function nearestAggroThreat(maxDistance = 16, recentSelfHurt = false) {
     const hostiles = nearbyHostiles(maxDistance);
-    let bestThreat = null;
+    let bestThreat: (typeof hostiles)[number] | null = null;
     let bestScore = 0;
 
     for (const hostile of hostiles) {
@@ -130,7 +148,7 @@ function createSafetyModule(bot, context) {
     };
   }
 
-  function assess(maxDistance = 12) {
+  function assess(maxDistance = 12): SafetyStatus {
     if (!bot.entity?.position) {
       return {
         blocks: {
@@ -158,7 +176,7 @@ function createSafetyModule(bot, context) {
     const now = Date.now();
 
     const inWater =
-      bot.entity?.isInWater === true ||
+      (bot.entity as any)?.isInWater === true ||
       blocks.feet === 'water' ||
       blocks.head === 'water';
     const inLava = blocks.feet === 'lava' || blocks.head === 'lava';
@@ -191,10 +209,14 @@ function createSafetyModule(bot, context) {
     };
   }
 
-  function isStandable(position, avoidPosition = null, avoidRadius = 6) {
-    const feet = bot.blockAt(position);
-    const head = bot.blockAt(position.offset(0, 1, 0));
-    const ground = bot.blockAt(position.offset(0, -1, 0));
+  function isStandable(
+    position: { distanceTo(other: unknown): number; offset(x: number, y: number, z: number): unknown },
+    avoidPosition: Vec3Like | null = null,
+    avoidRadius = 6,
+  ): boolean {
+    const feet = bot.blockAt(position as never);
+    const head = bot.blockAt(position.offset(0, 1, 0) as never);
+    const ground = bot.blockAt(position.offset(0, -1, 0) as never);
 
     if (!feet || !head || !ground) {
       return false;
@@ -216,7 +238,7 @@ function createSafetyModule(bot, context) {
       return false;
     }
 
-    if (avoidPosition && position.distanceTo(avoidPosition) < avoidRadius) {
+    if (avoidPosition && position.distanceTo(toVec3(avoidPosition)) < avoidRadius) {
       return false;
     }
 
@@ -225,8 +247,8 @@ function createSafetyModule(bot, context) {
 
   function findNearestSafePosition(
     maxDistance = 12,
-    avoidPosition = null,
-    options = {},
+    avoidPosition: Vec3Like | null = null,
+    options: { avoidRadius?: number } = {},
   ) {
     if (!bot.entity?.position) {
       return null;
@@ -234,7 +256,7 @@ function createSafetyModule(bot, context) {
 
     const origin = bot.entity.position.floored();
     const avoidRadius = options.avoidRadius ?? 6;
-    let bestPosition = null;
+    let bestPosition: typeof origin | null = null;
     let bestScore = Infinity;
 
     for (let y = -2; y <= 2; y += 1) {
@@ -255,7 +277,7 @@ function createSafetyModule(bot, context) {
           let score = distance;
 
           if (avoidPosition) {
-            score -= Math.min(candidate.distanceTo(avoidPosition), 20) * 0.6;
+            score -= Math.min(candidate.distanceTo(toVec3(avoidPosition)), 20) * 0.6;
           }
 
           if (score < bestScore) {
@@ -321,7 +343,7 @@ function createSafetyModule(bot, context) {
   async function escapeMobAggro() {
     const threat = nearestAggroThreat(16, true).threat ?? world.nearestHostile(16);
 
-    if (!threat) {
+    if (!threat?.position) {
       return {
         action: 'no_threat_found',
       };
@@ -401,14 +423,19 @@ function createSafetyModule(bot, context) {
     }
   }
 
-  async function autoProtect() {
+  async function autoProtect(): Promise<void> {
     if (escapeInProgress || !bot.entity?.position) {
       return;
     }
 
     const snapshot = assess();
 
-    if (snapshot.inLava || snapshot.onFire || snapshot.drowning || snapshot.mobAggro) {
+    if (
+      snapshot.inLava ||
+      snapshot.onFire ||
+      snapshot.drowning ||
+      snapshot.mobAggro
+    ) {
       try {
         await escapeDanger('auto');
       } catch (_error) {
@@ -452,7 +479,7 @@ function createSafetyModule(bot, context) {
   async function retreatFromNearestHostile(minDistance = 12) {
     const hostile = world.nearestHostile(minDistance * 2);
 
-    if (!hostile) {
+    if (!hostile?.position) {
       throw new Error(`No hostile entities found within ${minDistance * 2} blocks`);
     }
 
@@ -493,7 +520,3 @@ function createSafetyModule(bot, context) {
     status,
   };
 }
-
-module.exports = {
-  createSafetyModule,
-};

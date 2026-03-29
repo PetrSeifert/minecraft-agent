@@ -1,6 +1,6 @@
-const { Vec3 } = require('vec3');
+import { Vec3 } from 'vec3';
 
-const {
+import {
   CARDINAL_FACES,
   requireSpawned,
   resolveItem,
@@ -8,43 +8,68 @@ const {
   serializeItem,
   serializeWindow,
   toVec3,
-} = require('../utils');
+} from '../utils';
 
-function createActionsModule(bot, context) {
+import type {
+  ActionsModule,
+  BlockLike,
+  EventStreamLike,
+  InventoryModule,
+  MinecraftBot,
+  PathingModule,
+  Vec3Like,
+  WindowLike,
+  WorldModule,
+} from '../../types';
+
+interface ActionsContext {
+  events: EventStreamLike;
+  inventory: InventoryModule;
+  pathing: PathingModule;
+  world: WorldModule;
+}
+
+export function createActionsModule(
+  bot: MinecraftBot,
+  context: ActionsContext,
+): ActionsModule {
   const { events, inventory, pathing, world } = context;
 
-  async function mineBlockAt(position, options = {}) {
+  async function mineBlockAt(
+    position: Vec3Like,
+    options: { forceLook?: boolean; reach?: number } = {},
+  ) {
     requireSpawned(bot);
 
     const block = world.getBlockAt(position);
 
-    if (!block) {
+    if (!block?.position) {
       throw new Error('No block found at the requested position');
     }
 
     await pathing.gotoLookAt(block.position, options.reach ?? 4.5);
 
-    if (!bot.canDigBlock(block)) {
+    if (!bot.canDigBlock(block as never)) {
       throw new Error(`Block is not diggable from current position: ${block.name}`);
     }
 
-    const bestTool = bot.pathfinder.bestHarvestTool(block);
+    const bestTool = bot.pathfinder?.bestHarvestTool(block as never) ?? null;
 
     if (bestTool) {
-      await bot.equip(bestTool, 'hand');
+      await bot.equip(bestTool as never, 'hand');
     }
 
-    await bot.dig(block, options.forceLook ?? true);
+    await bot.dig(block as never, options.forceLook ?? true);
 
     events.push('action:mine', {
       block: serializeBlock(block),
-      tool: serializeItem(bestTool),
+      tool: serializeItem(bestTool as never),
     });
 
     return serializeBlock(block);
   }
 
-  function findCraftingTable(position = null) {
+  function findCraftingTable(position: Vec3Like | null = null): BlockLike | null {
     if (position) {
       const craftingTable = world.getBlockAt(position);
 
@@ -56,14 +81,18 @@ function createActionsModule(bot, context) {
     }
 
     const tableDetails = world.findBlockByName('crafting_table', { maxDistance: 16 });
-    return tableDetails ? world.getBlockAt(tableDetails.position) : null;
+    return tableDetails?.position ? world.getBlockAt(tableDetails.position) : null;
   }
 
-  async function craftItem(name, count = 1, craftingTablePosition = null) {
+  async function craftItem(
+    name: string,
+    count = 1,
+    craftingTablePosition: Vec3Like | null = null,
+  ) {
     requireSpawned(bot);
 
     const itemDefinition = resolveItem(bot, name);
-    let craftingTable = null;
+    let craftingTable: BlockLike | null = null;
     let recipe = bot.recipesFor(itemDefinition.id, null, 1, null)[0] ?? null;
 
     if (!recipe) {
@@ -74,14 +103,14 @@ function createActionsModule(bot, context) {
       }
 
       await pathing.gotoBlock(craftingTable, 1);
-      recipe = bot.recipesFor(itemDefinition.id, null, 1, craftingTable)[0] ?? null;
+      recipe = bot.recipesFor(itemDefinition.id, null, 1, craftingTable as never)[0] ?? null;
     }
 
     if (!recipe) {
       throw new Error(`No craftable recipe found for ${itemDefinition.name}`);
     }
 
-    await bot.craft(recipe, count, craftingTable);
+    await bot.craft(recipe, count, craftingTable as never);
 
     events.push('action:craft', {
       count,
@@ -96,10 +125,10 @@ function createActionsModule(bot, context) {
     };
   }
 
-  function resolvePlacementReference(targetPosition) {
+  function resolvePlacementReference(targetPosition: Vec3) {
     for (const face of CARDINAL_FACES) {
       const referencePosition = targetPosition.minus(face);
-      const referenceBlock = bot.blockAt(referencePosition);
+      const referenceBlock = bot.blockAt(referencePosition) as BlockLike | null;
 
       if (!referenceBlock) {
         continue;
@@ -118,13 +147,17 @@ function createActionsModule(bot, context) {
     return null;
   }
 
-  async function placeBlockAt(itemName, position) {
+  async function placeBlockAt(itemName: string, position: Vec3Like) {
     requireSpawned(bot);
 
     const targetPosition = toVec3(position).floored();
-    const targetBlock = bot.blockAt(targetPosition);
+    const targetBlock = bot.blockAt(targetPosition) as BlockLike | null;
 
-    if (targetBlock && targetBlock.boundingBox !== 'empty' && targetBlock.name !== 'water') {
+    if (
+      targetBlock &&
+      targetBlock.boundingBox !== 'empty' &&
+      targetBlock.name !== 'water'
+    ) {
       throw new Error(`Target position is occupied by ${targetBlock.name}`);
     }
 
@@ -136,9 +169,9 @@ function createActionsModule(bot, context) {
     }
 
     await pathing.gotoPlace(targetPosition);
-    await bot.placeBlock(placement.referenceBlock, placement.face);
+    await bot.placeBlock(placement.referenceBlock as never, placement.face);
 
-    const placedBlock = bot.blockAt(targetPosition) ?? targetBlock;
+    const placedBlock = (bot.blockAt(targetPosition) as BlockLike | null) ?? targetBlock;
 
     events.push('action:place', {
       item,
@@ -152,22 +185,22 @@ function createActionsModule(bot, context) {
     return serializeBlock(placedBlock);
   }
 
-  async function openContainerAt(position) {
+  async function openContainerAt(position: Vec3Like) {
     requireSpawned(bot);
 
     const block = world.getBlockAt(position);
 
-    if (!block) {
+    if (!block?.position) {
       throw new Error('No block found at the requested position');
     }
 
     await pathing.gotoLookAt(block.position, 4.5);
 
-    const container = await bot.openContainer(
-      block,
+    const container = (await bot.openContainer(
+      block as never,
       new Vec3(0, 1, 0),
       new Vec3(0.5, 0.5, 0.5),
-    );
+    )) as WindowLike & { close(): void };
 
     events.push('action:open_container', {
       block: serializeBlock(block),
@@ -179,7 +212,7 @@ function createActionsModule(bot, context) {
       container,
       items:
         typeof container.containerItems === 'function'
-          ? container.containerItems().map(serializeItem)
+          ? container.containerItems().map((item) => serializeItem(item))
           : [],
       window: serializeWindow(container),
     };
@@ -192,7 +225,3 @@ function createActionsModule(bot, context) {
     placeBlockAt,
   };
 }
-
-module.exports = {
-  createActionsModule,
-};

@@ -1,6 +1,10 @@
-const { summarizePayload } = require('../agent/utils');
+import type { Interface } from 'node:readline';
 
-function parseNumber(rawValue, label) {
+import { summarizePayload } from '../agent/utils';
+
+import type { Agent, MinecraftBot } from '../types';
+
+function parseNumber(rawValue: string, label: string): number {
   const value = Number(rawValue);
 
   if (Number.isNaN(value)) {
@@ -10,11 +14,11 @@ function parseNumber(rawValue, label) {
   return value;
 }
 
-function formatResult(value) {
+function formatResult(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-function helpText() {
+function helpText(): string {
   return [
     'Available commands:',
     '/help',
@@ -39,7 +43,11 @@ function helpText() {
   ].join('\n');
 }
 
-async function runCommand(bot, agent, input) {
+async function runCommand(
+  bot: MinecraftBot,
+  agent: Agent,
+  input: string,
+): Promise<string | null> {
   const [command, ...args] = input.slice(1).trim().split(/\s+/);
 
   switch (command) {
@@ -228,7 +236,11 @@ async function runCommand(bot, agent, input) {
   }
 }
 
-function createTerminal(bot, agent, terminal) {
+export function createTerminal(
+  bot: MinecraftBot,
+  agent: Agent,
+  terminal: Interface,
+): void {
   terminal.on('line', async (line) => {
     const input = line.trim();
 
@@ -248,12 +260,9 @@ function createTerminal(bot, agent, terminal) {
       }
 
       agent.chat.say(input);
-    } catch (error) {
-      console.error('[terminal] Error:', error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[terminal] Error:', message);
     }
   });
 }
-
-module.exports = {
-  createTerminal,
-};

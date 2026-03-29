@@ -1,21 +1,26 @@
-const { EventStream } = require('./eventStream');
-const { createActionsModule } = require('./modules/actions');
-const { createChatModule } = require('./modules/chat');
-const { createCombatModule } = require('./modules/combat');
-const { createInventoryModule } = require('./modules/inventory');
-const { createOrchestrationModule } = require('./modules/orchestration');
-const { createPathingModule } = require('./modules/pathing');
-const { createSafetyModule } = require('./modules/safety');
-const { createWorldModule } = require('./modules/world');
-const { createKnockbackDebugger } = require('./debug/knockback');
-const {
+import { createKnockbackDebugger } from './debug/knockback';
+import { EventStream } from './eventStream';
+import { createActionsModule } from './modules/actions';
+import { createChatModule } from './modules/chat';
+import { createCombatModule } from './modules/combat';
+import { createInventoryModule } from './modules/inventory';
+import { createOrchestrationModule } from './modules/orchestration';
+import { createPathingModule } from './modules/pathing';
+import { createSafetyModule } from './modules/safety';
+import { createWorldModule } from './modules/world';
+import {
   serializeBlock,
   serializeEntity,
   serializeVec3,
   serializeWindow,
-} = require('./utils');
+} from './utils';
 
-function createAgent(bot, config = {}) {
+import type { Agent, BotConfig, MinecraftBot } from '../types';
+
+export function createAgent(
+  bot: MinecraftBot,
+  config: Partial<BotConfig> = {},
+): Agent {
   const events = new EventStream();
   const chat = createChatModule(bot, events);
   const world = createWorldModule(bot);
@@ -50,7 +55,7 @@ function createAgent(bot, config = {}) {
     filePath: config.debugKnockbackFile,
   });
 
-  const agent = {
+  const agent: Agent = {
     actions,
     chat,
     combat,
@@ -142,17 +147,13 @@ function createAgent(bot, config = {}) {
   });
 
   bot.on('windowOpen', (window) => {
-    events.push('window:open', serializeWindow(window));
+    events.push('window:open', serializeWindow(window as never));
   });
 
   bot.on('windowClose', (window) => {
-    events.push('window:close', serializeWindow(window));
+    events.push('window:close', serializeWindow(window as never));
   });
 
   bot.agent = agent;
   return agent;
 }
-
-module.exports = {
-  createAgent,
-};

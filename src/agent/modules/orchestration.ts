@@ -1,4 +1,17 @@
-const { summarizePayload, requireSpawned, serializeVec3 } = require('../utils');
+import { summarizePayload, requireSpawned, serializeVec3 } from '../utils';
+
+import type {
+  ChatHistoryEntry,
+  ChatModule,
+  EventStreamLike,
+  MinecraftBot,
+  OrchestrationModule,
+  OrchestrationSnapshot,
+  SafetyModule,
+  SafetyStatus,
+  SerializedBlock,
+  WorldModule,
+} from '../../types';
 
 const BLOCK_SCAN_HORIZONTAL_RADIUS = 4;
 const BLOCK_SCAN_VERTICAL_OFFSETS = [-1, 0, 1, 2];
@@ -12,7 +25,7 @@ const EQUIPMENT_DESTINATIONS = [
   'legs',
   'feet',
   'off-hand',
-];
+] as const;
 const IGNORED_BLOCK_NAMES = new Set(['air', 'cave_air', 'void_air']);
 const CONTAINER_BLOCK_NAMES = new Set([
   'barrel',
@@ -26,26 +39,47 @@ const CONTAINER_BLOCK_NAMES = new Set([
   'trapped_chest',
 ]);
 
-function formatDistance(distance) {
+interface NearbyBlockEntry {
+  biome?: string | null;
+  distance: number;
+  name: string;
+  position?: ReturnType<typeof serializeVec3>;
+}
+
+interface OrchestrationContext {
+  chat: ChatModule;
+  events: EventStreamLike;
+  inventory: {
+    items(): Array<{ count?: number | null; name?: string | null } | null>;
+  };
+  safety: SafetyModule;
+  world: WorldModule;
+}
+
+function formatDistance(distance: number): number {
   return Number(distance.toFixed(1));
 }
 
-function aggregateInventoryCounts(items) {
-  return items.reduce((counts, item) => {
-    if (!item?.name || !Number.isFinite(item.count)) {
+function aggregateInventoryCounts(
+  items: Array<{ count?: number | null; name?: string | null } | null>,
+): Record<string, number> {
+  return items.reduce<Record<string, number>>((counts, item) => {
+    const count = item?.count;
+
+    if (!item?.name || typeof count !== 'number' || !Number.isFinite(count)) {
       return counts;
     }
 
-    counts[item.name] = (counts[item.name] ?? 0) + item.count;
+    counts[item.name] = (counts[item.name] ?? 0) + count;
     return counts;
   }, {});
 }
 
-function collectEquippedItemNames(bot) {
-  const equipped = [];
-  const seen = new Set();
+function collectEquippedItemNames(bot: MinecraftBot): string[] {
+  const equipped: string[] = [];
+  const seen = new Set<string>();
 
-  function pushItem(item) {
+  function pushItem(item: { name?: string | null } | null | undefined): void {
     if (!item?.name || seen.has(item.name)) {
       return;
     }
@@ -67,22 +101,26 @@ function collectEquippedItemNames(bot) {
       continue;
     }
 
-    pushItem(bot.inventory?.slots?.[slot] ?? null);
+    pushItem(bot.inventory?.slots?.[slot] as { name?: string | null } | null);
   }
 
   return equipped;
 }
 
-function classifyRiskLevel(safetyStatus, health = null) {
-  const currentHealth =
-    Number.isFinite(health) ? health : Number(safetyStatus?.health ?? NaN);
-  const hostileCount = safetyStatus?.hostiles?.length ?? 0;
+function classifyRiskLevel(
+  safetyStatus: Partial<SafetyStatus>,
+  health: number | null = null,
+): 'high' | 'low' | 'medium' {
+  const currentHealth = Number.isFinite(health)
+    ? Number(health)
+    : Number(safetyStatus.health ?? Number.NaN);
+  const hostileCount = safetyStatus.hostiles?.length ?? 0;
 
   if (
-    safetyStatus?.inLava ||
-    safetyStatus?.onFire ||
-    safetyStatus?.drowning ||
-    safetyStatus?.mobAggro ||
+    safetyStatus.inLava ||
+    safetyStatus.onFire ||
+    safetyStatus.drowning ||
+    safetyStatus.mobAggro ||
     (Number.isFinite(currentHealth) && currentHealth <= 8)
   ) {
     return 'high';
@@ -95,7 +133,7 @@ function classifyRiskLevel(safetyStatus, health = null) {
   return 'low';
 }
 
-function formatEntitySummary(entity) {
+function formatEntitySummary(entity: { distance?: number | null; displayName?: string | null; name?: string | null; type?: string | null; username?: string | null } | null): string | null {
   if (!entity) {
     return null;
   }
@@ -113,7 +151,7 @@ function formatEntitySummary(entity) {
     : label;
 }
 
-function formatChatHistoryEntry(entry) {
+function formatChatHistoryEntry(entry: ChatHistoryEntry | null): string | null {
   if (!entry) {
     return null;
   }
@@ -137,7 +175,7 @@ function formatChatHistoryEntry(entry) {
   return null;
 }
 
-function formatEventSummary(event) {
+function formatEventSummary(event: { payload?: unknown; type?: string | null } | null): string | null {
   if (!event?.type) {
     return null;
   }
@@ -146,15 +184,15 @@ function formatEventSummary(event) {
   return summary ? `${event.type}: ${summary}` : event.type;
 }
 
-function isSolidBlock(block) {
+function isSolidBlock(block: { boundingBox?: string | null } | null): boolean {
   return block?.boundingBox === 'block';
 }
 
-function isEmptyBlock(block) {
+function isEmptyBlock(block: { boundingBox?: string | null } | null): boolean {
   return !block || block.boundingBox === 'empty';
 }
 
-function isShelterCueBlockName(name) {
+function isShelterCueBlockName(name: string | null | undefined): boolean {
   if (!name) {
     return false;
   }
@@ -166,7 +204,7 @@ function isShelterCueBlockName(name) {
   );
 }
 
-function isContainerBlockName(name) {
+function isContainerBlockName(name: string | null | undefined): boolean {
   if (!name) {
     return false;
   }
@@ -174,11 +212,11 @@ function isContainerBlockName(name) {
   return CONTAINER_BLOCK_NAMES.has(name) || name.endsWith('_shulker_box');
 }
 
-function scanNearbyBlocks(bot) {
+function scanNearbyBlocks(bot: MinecraftBot): NearbyBlockEntry[] {
   requireSpawned(bot);
 
   const origin = bot.entity.position.floored();
-  const closestByName = new Map();
+  const closestByName = new Map<string, NearbyBlockEntry>();
 
   for (const yOffset of BLOCK_SCAN_VERTICAL_OFFSETS) {
     for (let xOffset = -BLOCK_SCAN_HORIZONTAL_RADIUS; xOffset <= BLOCK_SCAN_HORIZONTAL_RADIUS; xOffset += 1) {
@@ -227,7 +265,7 @@ function scanNearbyBlocks(bot) {
   });
 }
 
-function isCurrentPositionEnclosed(bot) {
+function isCurrentPositionEnclosed(bot: MinecraftBot): boolean {
   requireSpawned(bot);
 
   const origin = bot.entity.position.floored();
@@ -244,7 +282,10 @@ function isCurrentPositionEnclosed(bot) {
   );
 }
 
-function extractShelterCues(blockEntries, shelteredNow) {
+function extractShelterCues(
+  blockEntries: NearbyBlockEntry[],
+  shelteredNow: boolean,
+): string[] {
   const cues = shelteredNow ? ['current_position_enclosed'] : [];
 
   for (const block of blockEntries) {
@@ -262,14 +303,14 @@ function extractShelterCues(blockEntries, shelteredNow) {
   return cues;
 }
 
-function extractContainerCues(blockEntries) {
+function extractContainerCues(blockEntries: NearbyBlockEntry[]): string[] {
   return blockEntries
     .filter((block) => isContainerBlockName(block.name))
     .slice(0, MAX_PERCEPTION_ITEMS)
     .map((block) => `${block.name} (${formatDistance(block.distance)})`);
 }
 
-function findBiome(bot) {
+function findBiome(bot: MinecraftBot): string {
   requireSpawned(bot);
 
   const origin = bot.entity.position.floored();
@@ -279,16 +320,22 @@ function findBiome(bot) {
   return feetBlock?.biome?.name ?? groundBlock?.biome?.name ?? 'unknown';
 }
 
-function buildPerception(context) {
+function buildPerception(context: {
+  bot: MinecraftBot;
+  chat: ChatModule;
+  events: EventStreamLike;
+  safetyStatus: SafetyStatus;
+  world: WorldModule;
+}) {
   const { bot, chat, events, safetyStatus, world } = context;
   const nearbyEntities = world.nearbyEntities({
     limit: MAX_PERCEPTION_ITEMS,
     maxDistance: 16,
   });
-  const hostileIds = new Set((safetyStatus?.hostiles ?? []).map((entity) => entity.id));
+  const hostileIds = new Set((safetyStatus.hostiles ?? []).map((entity) => entity.id));
   const hostileEntities = world.nearbyEntities({
     limit: MAX_PERCEPTION_ITEMS,
-    matcher: (entity) => hostileIds.has(entity.id),
+    matcher: (entity) => hostileIds.has(entity.id ?? -1),
     maxDistance: 16,
   });
   const scannedBlocks = scanNearbyBlocks(bot);
@@ -297,11 +344,18 @@ function buildPerception(context) {
     nearbyBlocks: scannedBlocks
       .slice(0, MAX_NEARBY_BLOCKS)
       .map((block) => block.name),
-    nearbyEntities: nearbyEntities.map(formatEntitySummary).filter(Boolean),
-    hostiles: hostileEntities.map(formatEntitySummary).filter(Boolean),
+    nearbyEntities: nearbyEntities
+      .map(formatEntitySummary)
+      .filter((value): value is string => Boolean(value)),
+    hostiles: hostileEntities
+      .map(formatEntitySummary)
+      .filter((value): value is string => Boolean(value)),
     shelters: extractShelterCues(scannedBlocks, isCurrentPositionEnclosed(bot)),
     containers: extractContainerCues(scannedBlocks),
-    recentChat: chat.history(10).map(formatChatHistoryEntry).filter(Boolean),
+    recentChat: chat
+      .history(10)
+      .map(formatChatHistoryEntry)
+      .filter((value): value is string => Boolean(value)),
     recentEvents: events
       .recent(50)
       .filter(
@@ -309,14 +363,17 @@ function buildPerception(context) {
       )
       .slice(-10)
       .map(formatEventSummary)
-      .filter(Boolean),
+      .filter((value): value is string => Boolean(value)),
   };
 }
 
-function createOrchestrationModule(bot, context) {
+export function createOrchestrationModule(
+  bot: MinecraftBot,
+  context: OrchestrationContext,
+): OrchestrationModule {
   const { chat, events, inventory, safety, world } = context;
 
-  function snapshot() {
+  function snapshot(): OrchestrationSnapshot {
     requireSpawned(bot);
 
     const safetyStatus = safety.status(16);
@@ -330,7 +387,7 @@ function createOrchestrationModule(bot, context) {
         timeOfDay: bot.time?.isDay === false ? 'night' : 'day',
         inventory: aggregateInventoryCounts(inventory.items()),
         equipped: collectEquippedItemNames(bot),
-        risk: classifyRiskLevel(safetyStatus, bot.health),
+        risk: classifyRiskLevel(safetyStatus, bot.health ?? null),
       },
       perception: buildPerception({
         bot,
@@ -358,20 +415,17 @@ function createOrchestrationModule(bot, context) {
   };
 }
 
-module.exports = {
-  createOrchestrationModule,
-  orchestrationInternals: {
-    aggregateInventoryCounts,
-    classifyRiskLevel,
-    collectEquippedItemNames,
-    extractContainerCues,
-    extractShelterCues,
-    formatChatHistoryEntry,
-    formatEntitySummary,
-    formatEventSummary,
-    isContainerBlockName,
-    isCurrentPositionEnclosed,
-    isShelterCueBlockName,
-    scanNearbyBlocks,
-  },
+export const orchestrationInternals = {
+  aggregateInventoryCounts,
+  classifyRiskLevel,
+  collectEquippedItemNames,
+  extractContainerCues,
+  extractShelterCues,
+  formatChatHistoryEntry,
+  formatEntitySummary,
+  formatEventSummary,
+  isContainerBlockName,
+  isCurrentPositionEnclosed,
+  isShelterCueBlockName,
+  scanNearbyBlocks,
 };

@@ -1,8 +1,22 @@
-function createChatModule(bot, events) {
-  const history = [];
+import type {
+  ChatHistoryEntry,
+  ChatModule,
+  EventStreamLike,
+  MinecraftBot,
+} from '../../types';
+
+export function createChatModule(
+  bot: MinecraftBot,
+  events: EventStreamLike,
+): ChatModule {
+  const history: ChatHistoryEntry[] = [];
   const maxHistory = 100;
 
-  function pushHistory(channel, username, text) {
+  function pushHistory(
+    channel: string,
+    username: string | null,
+    text: string,
+  ): void {
     history.push({
       timestamp: new Date().toISOString(),
       channel,
@@ -26,13 +40,13 @@ function createChatModule(bot, events) {
   });
 
   return {
-    say(message) {
+    say(message: string) {
       bot.chat(message);
       events.push('chat:send', { text: message });
       return { text: message };
     },
 
-    whisper(username, message) {
+    whisper(username: string, message: string) {
       bot.whisper(username, message);
       events.push('chat:whisper', { username, text: message });
       return { username, text: message };
@@ -43,7 +57,3 @@ function createChatModule(bot, events) {
     },
   };
 }
-
-module.exports = {
-  createChatModule,
-};

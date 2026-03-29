@@ -1,15 +1,19 @@
-const { EventEmitter } = require('node:events');
+import { EventEmitter } from 'node:events';
 
-class EventStream extends EventEmitter {
+import type { StreamEvent } from '../types';
+
+export class EventStream extends EventEmitter {
+  private buffer: StreamEvent[] = [];
+  private readonly limit: number;
+  private sequence = 0;
+
   constructor(limit = 250) {
     super();
     this.limit = limit;
-    this.sequence = 0;
-    this.buffer = [];
   }
 
-  push(type, payload = null) {
-    const event = {
+  push(type: string, payload: unknown = null): StreamEvent {
+    const event: StreamEvent = {
       id: ++this.sequence,
       timestamp: new Date().toISOString(),
       type,
@@ -27,7 +31,7 @@ class EventStream extends EventEmitter {
     return event;
   }
 
-  recent(limit = 20, type = null) {
+  recent(limit = 20, type: string | null = null): StreamEvent[] {
     const items = type
       ? this.buffer.filter((event) => event.type === type)
       : this.buffer;
@@ -35,7 +39,3 @@ class EventStream extends EventEmitter {
     return items.slice(-limit);
   }
 }
-
-module.exports = {
-  EventStream,
-};
