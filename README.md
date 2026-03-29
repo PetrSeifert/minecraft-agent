@@ -26,6 +26,7 @@ npm start
 - Connects to the configured server.
 - Logs key lifecycle events.
 - Exposes modular agent primitives on `bot.agent.*`.
+- Exposes an orchestration snapshot for LLM consumption via `bot.agent.orchestration.snapshot()`.
 - Lets you send chat messages from the terminal.
 - Supports movement, inventory, world queries, block/container actions, combat/safety checks, chat, and an internal event stream.
 
@@ -41,6 +42,11 @@ This gives us a working base to split into movement, perception, inventory, and 
 - `bot.agent.safety`: health/threat status plus automatic emergency escape for aggro, drowning, and fire/lava.
 - `bot.agent.chat`: send chat and read recent chat history.
 - `bot.agent.events`: buffered event stream for Minecraft state changes.
+- `bot.agent.orchestration`: builds a compact `AgentState` snapshot for higher-level planners/LLMs.
+
+## Orchestration snapshot
+
+Use `bot.agent.orchestration.snapshot()` to build the current LLM-facing state contract on demand. The first version fills `self` and `perception` from live bot state and keeps `memory` / `planning` present as empty placeholders so the shape stays stable as orchestration grows.
 
 ## Terminal commands
 

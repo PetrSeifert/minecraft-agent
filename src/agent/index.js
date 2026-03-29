@@ -3,6 +3,7 @@ const { createActionsModule } = require('./modules/actions');
 const { createChatModule } = require('./modules/chat');
 const { createCombatModule } = require('./modules/combat');
 const { createInventoryModule } = require('./modules/inventory');
+const { createOrchestrationModule } = require('./modules/orchestration');
 const { createPathingModule } = require('./modules/pathing');
 const { createSafetyModule } = require('./modules/safety');
 const { createWorldModule } = require('./modules/world');
@@ -37,6 +38,13 @@ function createAgent(bot, config = {}) {
     world,
   });
   safety.enable();
+  const orchestration = createOrchestrationModule(bot, {
+    chat,
+    events,
+    inventory,
+    safety,
+    world,
+  });
   const knockbackDebug = createKnockbackDebugger(bot, pathing, {
     enabled: config.debugKnockback,
     filePath: config.debugKnockbackFile,
@@ -51,6 +59,7 @@ function createAgent(bot, config = {}) {
     },
     events,
     inventory,
+    orchestration,
     pathing,
     safety,
     world,
