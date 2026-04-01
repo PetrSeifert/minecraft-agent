@@ -208,3 +208,75 @@ test('escapeDanger skips unreachable safe tiles when pathfinder has a better rea
     [{ x: 2, y: 64, z: 0 }],
   );
 });
+
+test('escapeDanger times out stuck movement, stops pathing, and clears the in-progress flag', async () => {
+  const events = new EventStream();
+  const bot = createSafetyBot({
+    blocks: [
+      createBlock('water', new Vec3(4, 64, 1), 'empty'),
+      createBlock('air', new Vec3(4, 65, 1), 'empty'),
+    ],
+    fireFlag: true,
+  });
+  let stopCalls = 0;
+  const safety = createSafetyModule(bot as never, {
+    combat: {} as never,
+    events,
+    pathing: {
+      get movements() {
+        return {};
+      },
+      goto() {
+        return new Promise(() => {});
+      },
+      moveAwayFrom() {
+        return Promise.reject(new Error('not used'));
+      },
+      status() {
+        return {
+          building: false,
+          goal: null,
+          hasGoal: false,
+          mining: false,
+          moving: true,
+          pausedMs: 0,
+          physicsEnabled: true,
+          physicsHoldMs: 0,
+          ready: true,
+        };
+      },
+      stop() {
+        stopCalls += 1;
+      },
+    } as never,
+    world: {
+      findBlocksByName() {
+        return [
+          {
+            position: { x: 4, y: 64, z: 1 },
+          },
+        ];
+      },
+      nearbyEntities() {
+        return [];
+      },
+      nearestHostile() {
+        return null;
+      },
+    } as never,
+  }, {
+    escapeActionTimeoutMs: 20,
+  });
+
+  await assert.rejects(
+    () => safety.escapeDanger('stuck_escape'),
+    /Safety escape timed out after 20ms/,
+  );
+
+  assert.equal(stopCalls, 1);
+  assert.equal(safety.status().escapeInProgress, false);
+  assert.equal(
+    events.recent(20).some((event) => event.type === 'safety:escape_timeout'),
+    true,
+  );
+});

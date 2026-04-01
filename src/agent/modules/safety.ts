@@ -42,6 +42,7 @@ const HIGH_DANGER_HOSTILE_NAMES = new Set([
   'ravager',
   'warden',
 ]);
+const DEFAULT_ESCAPE_ACTION_TIMEOUT_MS = 10_000;
 const SAFE_POSITION_REACHABILITY_CHECK_LIMIT = 8;
 
 interface SafetyContext {
@@ -51,11 +52,22 @@ interface SafetyContext {
   world: WorldModule;
 }
 
+interface SafetyModuleOptions {
+  clearTimeoutFn?: (timer: NodeJS.Timeout) => void;
+  escapeActionTimeoutMs?: number;
+  setTimeoutFn?: (handler: () => void, timeout: number) => NodeJS.Timeout;
+}
+
 export function createSafetyModule(
   bot: MinecraftBot,
   context: SafetyContext,
+  options: SafetyModuleOptions = {},
 ): SafetyModule {
   const { events, pathing, world } = context;
+  const clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout;
+  const escapeActionTimeoutMs =
+    options.escapeActionTimeoutMs ?? DEFAULT_ESCAPE_ACTION_TIMEOUT_MS;
+  const setTimeoutFn = options.setTimeoutFn ?? setTimeout;
 
   let monitorEnabled = false;
   let monitorInterval: NodeJS.Timeout | null = null;
@@ -64,7 +76,47 @@ export function createSafetyModule(
   let lastEscape: ReturnType<SafetyModule['status']>['lastEscape'] = null;
 
   function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeoutFn(resolve, ms));
+  }
+
+  async function awaitEscapeMovement<T>(movement: Promise<T>): Promise<T> {
+    let timeoutId: NodeJS.Timeout | null = null;
+    let timedOut = false;
+    const guardedMovement = movement.then(
+      (result) => {
+        if (timedOut) {
+          return undefined as T;
+        }
+
+        return result;
+      },
+      (error: unknown) => {
+        if (timedOut) {
+          return undefined as T;
+        }
+
+        throw error;
+      },
+    );
+
+    try {
+      return await new Promise<T>((resolve, reject) => {
+        timeoutId = setTimeoutFn(() => {
+          timedOut = true;
+          pathing.stop();
+          events.push('safety:escape_timeout', {
+            timeoutMs: escapeActionTimeoutMs,
+          });
+          reject(new Error(`Safety escape timed out after ${escapeActionTimeoutMs}ms`));
+        }, escapeActionTimeoutMs);
+
+        guardedMovement.then(resolve, reject);
+      });
+    } finally {
+      if (timeoutId) {
+        clearTimeoutFn(timeoutId);
+      }
+    }
   }
 
   function blockNameAt(position: Vec3Like): string | null {
@@ -366,7 +418,7 @@ export function createSafetyModule(
       };
     }
 
-    await pathing.goto(safePosition, 0);
+    await awaitEscapeMovement(pathing.goto(safePosition, 0));
 
     return {
       action: 'surface_escape',
@@ -378,9 +430,9 @@ export function createSafetyModule(
     const waterTarget = findWaterEscapeTarget(12);
 
     if (waterTarget) {
-      await pathing.goto(waterTarget, 0, {
+      await awaitEscapeMovement(pathing.goto(waterTarget, 0, {
         ignorePause: true,
-      });
+      }));
 
       return {
         action: 'water_escape',
@@ -396,7 +448,7 @@ export function createSafetyModule(
       };
     }
 
-    await pathing.goto(safePosition, 0);
+    await awaitEscapeMovement(pathing.goto(safePosition, 0));
 
     return {
       action: 'fire_escape',
@@ -418,9 +470,9 @@ export function createSafetyModule(
     });
 
     if (safePosition) {
-      await pathing.goto(safePosition, 0, {
+      await awaitEscapeMovement(pathing.goto(safePosition, 0, {
         ignorePause: true,
-      });
+      }));
 
       return {
         action: 'retreat_to_safe_position',
@@ -429,9 +481,9 @@ export function createSafetyModule(
       };
     }
 
-    await pathing.moveAwayFrom(threat.position, 14, {
+    await awaitEscapeMovement(pathing.moveAwayFrom(threat.position, 14, {
       ignorePause: true,
-    });
+    }));
 
     return {
       action: 'retreat_away_from_threat',
@@ -463,7 +515,7 @@ export function createSafetyModule(
         const safePosition = findNearestSafePosition(10);
 
         if (safePosition) {
-          await pathing.goto(safePosition, 0);
+          await awaitEscapeMovement(pathing.goto(safePosition, 0));
           result = {
             action: 'move_to_safe_position',
             target: serializeVec3(safePosition),

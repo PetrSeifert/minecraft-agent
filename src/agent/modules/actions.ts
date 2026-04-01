@@ -47,13 +47,20 @@ export function createActionsModule(
   ) {
     requireSpawned(bot);
 
-    const block = world.getBlockAt(position);
+    const initialBlock = world.getBlockAt(position);
 
-    if (!block?.position) {
+    if (!initialBlock?.position) {
       throw new Error('No block found at the requested position');
     }
 
-    await pathing.gotoLookAt(block.position, options.reach ?? 4.5);
+    await pathing.gotoLookAt(initialBlock.position, options.reach ?? 4.5);
+
+    // Re-resolve the block after moving so dig uses the live block state and a visible face.
+    const block = world.getBlockAt(initialBlock.position);
+
+    if (!block?.position) {
+      throw new Error('Target block disappeared before digging started');
+    }
 
     if (!bot.canDigBlock(block as never)) {
       throw new Error(`Block is not diggable from current position: ${block.name}`);
@@ -65,7 +72,7 @@ export function createActionsModule(
       await bot.equip(bestTool as never, 'hand');
     }
 
-    await bot.dig(block as never, options.forceLook ?? true);
+    await bot.dig(block as never, options.forceLook ?? true, 'raycast' as never);
 
     events.push('action:mine', {
       block: serializeBlock(block),
