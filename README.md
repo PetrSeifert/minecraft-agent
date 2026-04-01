@@ -28,6 +28,10 @@ npm run typecheck
 - `MC_PASSWORD`: Optional. Required for `MC_AUTH=microsoft`.
 - `MC_AUTH`: `offline` for local/cracked servers, `microsoft` for Microsoft account login.
 - `MC_VERSION`: Optional. Leave empty to auto-detect the server version.
+- `OPENROUTER_API_KEY`: OpenRouter API key used by the goal planner.
+- `OPENROUTER_MODEL`: OpenRouter model ID used for goal selection.
+- `OPENROUTER_BASE_URL`: Optional. Defaults to `https://openrouter.ai/api/v1`.
+- `GOAL_PLANNER_INTERVAL_MS`: Optional. Defaults to `60000`.
 
 ## Current behavior
 
@@ -61,6 +65,8 @@ Use `bot.agent.orchestration.snapshot()` to build the current LLM-facing state c
 Type normal text to send chat. Use slash commands for primitives:
 
 - `/help`
+- `/goal`
+- `/state`
 - `/pos`
 - `/inventory`
 - `/entities [distance]`
@@ -78,6 +84,8 @@ Type normal text to send chat. Use slash commands for primitives:
 - `/safety [status|on|off|now]`
 - `/retreat [distance]`
 - `/events [count]`
+- `/replan`
+- `/planner [status|on|off|now]`
 - `/quit`
 
 ## Testing on mc.peterrock.dev

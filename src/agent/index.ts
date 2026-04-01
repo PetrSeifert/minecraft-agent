@@ -7,8 +7,10 @@ import { createInventoryModule } from './modules/inventory';
 import { createMemoryModule } from './modules/memory';
 import { createOrchestrationModule } from './modules/orchestration';
 import { createPathingModule } from './modules/pathing';
+import { createPlannerModule } from './modules/planner';
 import { createSafetyModule } from './modules/safety';
 import { createWorldModule } from './modules/world';
+import { createOpenRouterGoalClient } from '../llm/openRouterClient';
 import {
   serializeBlock,
   serializeEntity,
@@ -16,7 +18,7 @@ import {
   serializeWindow,
 } from './utils';
 
-import type { Agent, BotConfig, MinecraftBot } from '../types';
+import type { Agent, BotConfig, MinecraftBot, PlannerStatus } from '../types';
 
 export function createAgent(
   bot: MinecraftBot,
@@ -49,14 +51,28 @@ export function createAgent(
     events,
     safety,
   });
+  let plannerStatusAccessor: (() => PlannerStatus) | null = null;
   const orchestration = createOrchestrationModule(bot, {
     chat,
     events,
+    getPlannerStatus: () => plannerStatusAccessor?.() ?? null,
     inventory,
     memory,
     safety,
     world,
   });
+  const planner = createPlannerModule(bot, {
+    client: createOpenRouterGoalClient({
+      apiKey: config.openRouterApiKey ?? '',
+      baseUrl: config.openRouterBaseUrl ?? 'https://openrouter.ai/api/v1',
+      model: config.openRouterModel ?? '',
+    }),
+    events,
+    goalPlannerIntervalMs: config.goalPlannerIntervalMs ?? 60_000,
+    memory,
+    orchestration,
+  });
+  plannerStatusAccessor = () => planner.status();
   const knockbackDebug = createKnockbackDebugger(bot, pathing, {
     enabled: config.debugKnockback,
     filePath: config.debugKnockbackFile,
@@ -74,6 +90,7 @@ export function createAgent(
     memory,
     orchestration,
     pathing,
+    planner,
     safety,
     world,
   };

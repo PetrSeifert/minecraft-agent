@@ -15,7 +15,11 @@ export interface BotConfig {
   auth: 'microsoft' | 'mojang' | 'offline';
   debugKnockback: boolean;
   debugKnockbackFile: string;
+  goalPlannerIntervalMs: number;
   host: string;
+  openRouterApiKey: string;
+  openRouterBaseUrl: string;
+  openRouterModel: string;
   password?: string;
   port: number;
   username: string;
@@ -371,6 +375,7 @@ export interface OrchestrationSnapshot {
   planning: {
     currentGoal: string | null;
     currentSkill: unknown;
+    planner: PlannerStatus | null;
     plan: unknown[];
     recentFailures: WorkingMemoryItem[];
   };
@@ -388,6 +393,24 @@ export interface OrchestrationSnapshot {
 
 export interface OrchestrationModule {
   snapshot(): OrchestrationSnapshot;
+}
+
+export interface PlannerStatus {
+  currentGoal: string | null;
+  enabled: boolean;
+  inFlight: boolean;
+  lastError: string | null;
+  lastPlannedAt: string | null;
+  lastTrigger: string | null;
+  model: string;
+  provider: 'openrouter';
+}
+
+export interface PlannerModule {
+  disable(): PlannerStatus;
+  enable(): PlannerStatus;
+  replanNow(reason?: string): Promise<PlannerStatus>;
+  status(): PlannerStatus;
 }
 
 export interface MemoryModule {
@@ -416,6 +439,7 @@ export interface Agent {
   memory: MemoryModule;
   orchestration: OrchestrationModule;
   pathing: PathingModule;
+  planner: PlannerModule;
   safety: SafetyModule;
   world: WorldModule;
 }

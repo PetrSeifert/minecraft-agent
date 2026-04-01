@@ -1,6 +1,8 @@
 import type { BotConfig } from './types';
 
 const DEFAULT_HOST = 'localhost';
+const DEFAULT_GOAL_PLANNER_INTERVAL_MS = 60_000;
+const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 const DEFAULT_PORT = 25565;
 const DEFAULT_USERNAME = 'MineflayerBot';
 
@@ -24,12 +26,45 @@ function parseAuth(rawAuth: string | undefined, hasPassword: boolean): BotConfig
   throw new Error(`Invalid MC_AUTH value: "${rawAuth}"`);
 }
 
+function parsePositiveInteger(
+  rawValue: string | undefined,
+  fallback: number,
+  label: string,
+): number {
+  const value = Number(rawValue ?? fallback);
+
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Invalid ${label} value: "${rawValue}"`);
+  }
+
+  return value;
+}
+
+function parseRequiredEnv(env: NodeJS.ProcessEnv, key: string): string {
+  const value = env[key]?.trim();
+
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+
+  return value;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
   const host = env.MC_HOST?.trim() || DEFAULT_HOST;
   const username = env.MC_USERNAME?.trim() || DEFAULT_USERNAME;
   const password = env.MC_PASSWORD?.trim() || undefined;
   const auth = parseAuth(env.MC_AUTH, Boolean(password));
   const version = env.MC_VERSION?.trim() || false;
+  const openRouterApiKey = parseRequiredEnv(env, 'OPENROUTER_API_KEY');
+  const openRouterModel = parseRequiredEnv(env, 'OPENROUTER_MODEL');
+  const openRouterBaseUrl =
+    env.OPENROUTER_BASE_URL?.trim() || DEFAULT_OPENROUTER_BASE_URL;
+  const goalPlannerIntervalMs = parsePositiveInteger(
+    env.GOAL_PLANNER_INTERVAL_MS,
+    DEFAULT_GOAL_PLANNER_INTERVAL_MS,
+    'GOAL_PLANNER_INTERVAL_MS',
+  );
   const debugKnockback =
     env.MC_DEBUG_KNOCKBACK?.trim() === '1' ||
     env.MC_DEBUG_KNOCKBACK?.trim()?.toLowerCase() === 'true';
@@ -43,6 +78,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
     password,
     auth,
     version,
+    openRouterApiKey,
+    openRouterModel,
+    openRouterBaseUrl,
+    goalPlannerIntervalMs,
     debugKnockback,
     debugKnockbackFile,
   };

@@ -22,6 +22,8 @@ function helpText(): string {
   return [
     'Available commands:',
     '/help',
+    '/goal',
+    '/state',
     '/pos',
     '/inventory',
     '/entities [distance]',
@@ -40,6 +42,8 @@ function helpText(): string {
     '/safety [status|on|off|now]',
     '/retreat [distance]',
     '/events [count]',
+    '/replan',
+    '/planner [status|on|off|now]',
     '/quit',
   ].join('\n');
 }
@@ -54,6 +58,12 @@ async function runCommand(
   switch (command) {
     case 'help':
       return helpText();
+    case 'goal':
+      return formatResult({
+        goal: agent.memory.currentGoal(),
+      });
+    case 'state':
+      return formatResult(agent.orchestration.snapshot());
     case 'pos':
       return formatResult(agent.world.position());
     case 'inventory':
@@ -234,6 +244,29 @@ async function runCommand(
       });
 
       return lines.join('\n');
+    }
+    case 'replan':
+      return formatResult(await agent.planner.replanNow('manual_terminal'));
+    case 'planner': {
+      const mode = args[0] ?? 'status';
+
+      if (mode === 'on') {
+        return formatResult(agent.planner.enable());
+      }
+
+      if (mode === 'off') {
+        return formatResult(agent.planner.disable());
+      }
+
+      if (mode === 'now') {
+        return formatResult(await agent.planner.replanNow('planner_now_terminal'));
+      }
+
+      if (mode === 'status') {
+        return formatResult(agent.planner.status());
+      }
+
+      throw new Error('Usage: /planner [status|on|off|now]');
     }
     case 'quit':
       bot.quit('User requested shutdown');

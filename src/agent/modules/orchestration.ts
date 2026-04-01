@@ -8,6 +8,7 @@ import type {
   MinecraftBot,
   OrchestrationModule,
   OrchestrationSnapshot,
+  PlannerStatus,
   SafetyModule,
   SafetyStatus,
   VisibleBlockSummary,
@@ -39,6 +40,7 @@ const CONTAINER_BLOCK_NAMES = new Set([
 interface OrchestrationContext {
   chat: ChatModule;
   events: EventStreamLike;
+  getPlannerStatus?: () => PlannerStatus | null;
   inventory: {
     items(): Array<{ count?: number | null; name?: string | null } | null>;
   };
@@ -350,6 +352,7 @@ export function createOrchestrationModule(
       planning: {
         currentGoal: context.memory.currentGoal(),
         currentSkill: undefined,
+        planner: context.getPlannerStatus?.() ?? null,
         plan: [],
         recentFailures,
       },

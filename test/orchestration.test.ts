@@ -211,6 +211,7 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
     {
       chat: { history: () => [] },
       events: { recent: () => [] },
+      getPlannerStatus: () => null,
       inventory: { items: () => [] },
       memory: {
         currentGoal: () => null,
@@ -403,6 +404,18 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
         };
       },
     },
+    getPlannerStatus() {
+      return {
+        currentGoal: 'Gather wood',
+        enabled: true,
+        inFlight: false,
+        lastError: null,
+        lastPlannedAt: '2026-01-01T00:00:00.000Z',
+        lastTrigger: 'spawn',
+        model: 'openrouter/test-model',
+        provider: 'openrouter' as const,
+      };
+    },
   } as never);
 
   const snapshot = orchestration.snapshot();
@@ -460,6 +473,8 @@ test('snapshot returns the full AgentState contract and throws before spawn', ()
   assert.ok(snapshot.memory.working.some((item) => item.tags.includes('failure')));
   assert.equal(snapshot.planning.currentGoal, 'Gather wood');
   assert.ok(Object.prototype.hasOwnProperty.call(snapshot.planning, 'currentSkill'));
+  assert.equal(snapshot.planning.planner?.model, 'openrouter/test-model');
+  assert.equal(snapshot.planning.planner?.lastTrigger, 'spawn');
   assert.deepEqual(snapshot.planning.plan, []);
   assert.ok(snapshot.planning.recentFailures.length >= 1);
 });

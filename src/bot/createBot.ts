@@ -32,7 +32,15 @@ function formatError(error: unknown): string {
 }
 
 export function createBot(config: BotConfig): MinecraftBot {
-  const { debugKnockback, debugKnockbackFile, ...botOptions } = config;
+  const {
+    debugKnockback,
+    debugKnockbackFile,
+    goalPlannerIntervalMs: _goalPlannerIntervalMs,
+    openRouterApiKey: _openRouterApiKey,
+    openRouterBaseUrl: _openRouterBaseUrl,
+    openRouterModel: _openRouterModel,
+    ...botOptions
+  } = config;
 
   const bot = createMineflayerBot({
     ...botOptions,
