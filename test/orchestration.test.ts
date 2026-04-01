@@ -162,6 +162,20 @@ test('format helpers render compact chat event and entity summaries', () => {
     'pathing:status: <Alex> Started moving',
   );
   assert.equal(
+    formatEventSummary({
+      payload: {
+        args: { name: 'oak_log' },
+        result: {
+          name: 'oak_log',
+          position: { x: 3, y: 64, z: 1 },
+        },
+        tool: 'find_block_by_name',
+      },
+      type: 'executor:success',
+    }),
+    'executor:success: find_block_by_name(name=oak_log) -> oak_log @ 3,64,1',
+  );
+  assert.equal(
     formatEntitySummary({
       distance: 4.24,
       name: 'zombie',

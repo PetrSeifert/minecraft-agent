@@ -261,13 +261,42 @@ export function summarizePayload(payload: unknown): string | number | boolean | 
   }
 
   const candidate = payload as {
+    args?: Record<string, unknown>;
+    block?: unknown;
+    items?: unknown[];
     message?: string;
+    movement?: unknown;
     name?: string;
     position?: Vec3Like;
     reason?: string;
+    result?: unknown;
     text?: string;
+    tool?: string;
     username?: string;
+    window?: unknown;
   };
+
+  const toolName = typeof candidate.tool === 'string' ? candidate.tool.trim() : '';
+  const formattedArgs =
+    candidate.args && typeof candidate.args === 'object' && !Array.isArray(candidate.args)
+      ? Object.entries(candidate.args)
+          .map(([key, value]) => {
+            if (value == null || (typeof value === 'object' && summarizePayload(value) == null)) {
+              return null;
+            }
+
+            const formattedValue =
+              typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+                ? String(value)
+                : String(summarizePayload(value));
+            return `${key}=${formattedValue}`;
+          })
+          .filter((value): value is string => Boolean(value))
+          .join(', ')
+      : '';
+  const toolCallLabel = toolName
+    ? `${toolName}${formattedArgs ? `(${formattedArgs})` : ''}`
+    : null;
 
   if (candidate.message) {
     return candidate.message;
@@ -293,6 +322,30 @@ export function summarizePayload(payload: unknown): string | number | boolean | 
   if (candidate.position) {
     const { x, y, z } = candidate.position;
     return `${x},${y},${z}`;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(candidate, 'result')) {
+    const resultSummary = summarizePayload(candidate.result);
+
+    if (resultSummary != null) {
+      return toolCallLabel ? `${toolCallLabel} -> ${resultSummary}` : resultSummary;
+    }
+
+    if (candidate.result === null) {
+      return toolCallLabel ? `${toolCallLabel} -> not found` : 'not found';
+    }
+  }
+
+  for (const nestedValue of [candidate.block, candidate.movement, candidate.window]) {
+    const nestedSummary = summarizePayload(nestedValue);
+
+    if (nestedSummary != null) {
+      return nestedSummary;
+    }
+  }
+
+  if (Array.isArray(candidate.items)) {
+    return `${candidate.items.length} item${candidate.items.length === 1 ? '' : 's'}`;
   }
 
   return null;

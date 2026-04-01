@@ -1,4 +1,4 @@
-import { isHostileEntity } from '../utils';
+import { isHostileEntity, summarizePayload } from '../utils';
 
 import type {
   EventStreamLike,
@@ -320,6 +320,27 @@ function normalizeStreamEvent(
         timestamp: event.timestamp,
         type: 'observation',
       }];
+    case 'executor:success': {
+      const payload = eventPayloadObject(event.payload);
+      const outcome = trimText(typeof payload?.outcome === 'string' ? payload.outcome : null);
+      const tool = trimText(typeof payload?.tool === 'string' ? payload.tool : null);
+      const text = formatExecutorObservationText(event.payload);
+
+      if (outcome !== 'observe' || !tool || !text) {
+        return [];
+      }
+
+      return [{
+        payload: event.payload,
+        priority: 6,
+        sourceEventId: event.id,
+        sourceType: event.type,
+        tags: ['observation', 'executor', 'result', 'success', `tool:${tool}`],
+        text,
+        timestamp: event.timestamp,
+        type: 'observation',
+      }];
+    }
     default:
       return [];
   }
@@ -328,6 +349,53 @@ function normalizeStreamEvent(
 function actionNameFromRawPayload(payload: unknown): string | null {
   const record = eventPayloadObject(payload);
   return trimText(typeof record?.action === 'string' ? record.action : null);
+}
+
+function formatExecutorObservationText(payload: unknown): string | null {
+  const record = eventPayloadObject(payload);
+
+  if (!record) {
+    return null;
+  }
+
+  const tool = trimText(typeof record?.tool === 'string' ? record.tool : null);
+
+  if (!tool) {
+    return null;
+  }
+
+  const args = eventPayloadObject(record.args);
+  const argsText = args
+    ? Object.entries(args)
+        .map(([key, value]) => {
+          if (value == null) {
+            return null;
+          }
+
+          const formattedValue =
+            typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+              ? String(value)
+              : summarizePayload(value);
+
+          return formattedValue == null ? null : `${key}=${formattedValue}`;
+        })
+        .filter((value): value is string => Boolean(value))
+        .join(', ')
+    : '';
+
+  const resultSummary = summarizePayload(record.result);
+  const resultText =
+    resultSummary != null
+      ? String(resultSummary)
+      : record.result === null
+        ? 'not found'
+        : null;
+
+  if (!resultText) {
+    return null;
+  }
+
+  return `${tool}${argsText ? `(${argsText})` : ''} -> ${resultText}`;
 }
 
 function buildSummaryText(
@@ -361,6 +429,15 @@ function buildSummaryText(
 
   if (successes.length > 0) {
     sections.push(`Successes: ${successes.join('; ')}`);
+  }
+
+  const results = events
+    .filter((event) => event.type !== 'action_success' && eventHasTag(event, 'result'))
+    .slice(-2)
+    .map((event) => event.text);
+
+  if (results.length > 0) {
+    sections.push(`Results: ${results.join('; ')}`);
   }
 
   const observations = events
@@ -497,6 +574,23 @@ function buildWorkingMemory(
     .reverse();
 
   for (const event of recentSuccesses) {
+    const eventTimestampMs = Date.parse(event.timestamp);
+
+    candidates.push({
+      expiresAt: toTimestamp(eventTimestampMs + ACTION_RESULT_EXPIRY_MS),
+      priority: event.priority ?? 6,
+      tags: unique(['result', ...event.tags]),
+      text: event.text,
+      timestamp: event.timestamp,
+    });
+  }
+
+  const recentResults = events
+    .filter((event) => event.type !== 'action_success' && eventHasTag(event, 'result'))
+    .slice(-RECENT_SUCCESS_LIMIT)
+    .reverse();
+
+  for (const event of recentResults) {
     const eventTimestampMs = Date.parse(event.timestamp);
 
     candidates.push({

@@ -191,6 +191,45 @@ test('instrumented async operations emit normalized action lifecycle events', as
   assert.equal(shortTerm[3]?.text, 'Failed second: boom');
 });
 
+test('executor observation results are retained as short-term facts and working-memory results', () => {
+  const bot = createMemoryBot();
+  const events = new EventStream();
+  const memory = createMemoryModule(bot as never, {
+    events,
+    safety: {
+      status: () => createSafetyStatus(),
+    } as never,
+  }, {
+    autoSummarize: false,
+  });
+
+  events.push('executor:success', {
+    args: {
+      name: 'oak_log',
+    },
+    outcome: 'observe',
+    result: {
+      name: 'oak_log',
+      position: { x: 3, y: 64, z: 1 },
+    },
+    tool: 'find_block_by_name',
+  });
+
+  const state = memory.state();
+  const observation = state.shortTerm.events[0];
+
+  assert.equal(observation?.type, 'observation');
+  assert.equal(observation?.text, 'find_block_by_name(name=oak_log) -> oak_log @ 3,64,1');
+  assert.ok(observation?.tags.includes('executor'));
+  assert.ok(observation?.tags.includes('result'));
+  assert.ok(
+    state.working.some((item) => item.text === 'find_block_by_name(name=oak_log) -> oak_log @ 3,64,1'),
+  );
+
+  const summary = memory.summarizeNow();
+  assert.match(summary?.text ?? '', /Results: find_block_by_name\(name=oak_log\) -> oak_log @ 3,64,1/);
+});
+
 test('summaries only compact unsummarized events and preserve important facts', () => {
   const bot = createMemoryBot();
   const events = new EventStream();
