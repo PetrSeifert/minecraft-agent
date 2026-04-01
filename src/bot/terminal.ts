@@ -44,6 +44,7 @@ function helpText(): string {
     '/events [count]',
     '/replan',
     '/planner [status|on|off|now]',
+    '/executor [status|on|off|now]',
     '/quit',
   ].join('\n');
 }
@@ -267,6 +268,27 @@ async function runCommand(
       }
 
       throw new Error('Usage: /planner [status|on|off|now]');
+    }
+    case 'executor': {
+      const mode = args[0] ?? 'status';
+
+      if (mode === 'on') {
+        return formatResult(agent.executor.enable());
+      }
+
+      if (mode === 'off') {
+        return formatResult(agent.executor.disable());
+      }
+
+      if (mode === 'now') {
+        return formatResult(await agent.executor.stepNow('executor_now_terminal'));
+      }
+
+      if (mode === 'status') {
+        return formatResult(agent.executor.status());
+      }
+
+      throw new Error('Usage: /executor [status|on|off|now]');
     }
     case 'quit':
       bot.quit('User requested shutdown');

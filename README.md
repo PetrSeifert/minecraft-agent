@@ -29,11 +29,12 @@ npm run typecheck
 - `MC_AUTH`: `offline` for local/cracked servers, `microsoft` for Microsoft account login.
 - `MC_VERSION`: Optional. Leave empty to auto-detect the server version.
 - `OPENROUTER_API_KEY`: Optional. OpenRouter API key used by the goal planner.
-- `OPENROUTER_MODEL`: Optional. OpenRouter model ID used for goal selection.
+- `OPENROUTER_MODEL`: Optional. OpenRouter model ID used for goal selection and execution. Must support OpenRouter tool calling when LLM automation is enabled.
 - `OPENROUTER_BASE_URL`: Optional. Defaults to `https://openrouter.ai/api/v1`.
+- `GOAL_EXECUTOR_INTERVAL_MS`: Optional. Defaults to `5000`.
 - `GOAL_PLANNER_INTERVAL_MS`: Optional. Defaults to `60000`.
 
-If the OpenRouter key/model are omitted, the bot still starts, but the planner stays disabled until credentials are configured.
+If the OpenRouter key/model are omitted, the bot still starts, but both the planner and executor stay disabled until credentials are configured. If credentials are present but the configured model does not support tool calling, startup fails fast.
 
 ## Current behavior
 
@@ -43,6 +44,7 @@ If the OpenRouter key/model are omitted, the bot still starts, but the planner s
 - Exposes an orchestration snapshot for LLM consumption via `bot.agent.orchestration.snapshot()`.
 - Lets you send chat messages from the terminal.
 - Supports movement, inventory, world queries, block/container actions, combat/safety checks, chat, and an internal event stream.
+- Supports a one-step LLM executor that can inspect state and invoke curated agent tools toward the current high-level goal.
 
 This gives us a working base to split into movement, perception, inventory, and task modules next.
 
@@ -57,6 +59,8 @@ This gives us a working base to split into movement, perception, inventory, and 
 - `bot.agent.chat`: send chat and read recent chat history.
 - `bot.agent.events`: buffered event stream for Minecraft state changes.
 - `bot.agent.orchestration`: builds a compact `AgentState` snapshot for higher-level planners/LLMs.
+- `bot.agent.planner`: chooses the current high-level goal string.
+- `bot.agent.executor`: executes one LLM-selected tool step toward the current goal.
 
 ## Orchestration snapshot
 
@@ -89,6 +93,7 @@ Type normal text to send chat. Use slash commands for primitives:
 - `/events [count]`
 - `/replan`
 - `/planner [status|on|off|now]`
+- `/executor [status|on|off|now]`
 - `/quit`
 
 ## Testing on mc.peterrock.dev

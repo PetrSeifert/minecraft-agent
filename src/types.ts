@@ -16,6 +16,7 @@ export interface BotConfig {
   dashboardPort: number;
   debugKnockback: boolean;
   debugKnockbackFile: string;
+  goalExecutorIntervalMs: number;
   goalPlannerIntervalMs: number;
   host: string;
   openRouterApiKey: string;
@@ -281,6 +282,7 @@ export interface InventorySummary {
 
 export interface InventoryModule {
   count(name: string): number;
+  consumeFood(name?: string): Promise<SerializedItem | null>;
   equip(name: string, destination?: string): Promise<SerializedItem | null>;
   findItemByName(name: string): ItemLike | null;
   heldItem(): SerializedItem | null;
@@ -376,6 +378,7 @@ export interface OrchestrationSnapshot {
   planning: {
     currentGoal: string | null;
     currentSkill: unknown;
+    executor: ExecutorStatus | null;
     planner: PlannerStatus | null;
     plan: unknown[];
     recentFailures: WorkingMemoryItem[];
@@ -414,6 +417,30 @@ export interface PlannerModule {
   status(): PlannerStatus;
 }
 
+export interface ExecutorDecision {
+  args: JsonValue;
+  tool: string;
+}
+
+export interface ExecutorStatus {
+  currentGoal: string | null;
+  enabled: boolean;
+  inFlight: boolean;
+  lastDecision: ExecutorDecision | null;
+  lastError: string | null;
+  lastStepAt: string | null;
+  lastTrigger: string | null;
+  model: string;
+  provider: 'openrouter';
+}
+
+export interface ExecutorModule {
+  disable(): ExecutorStatus;
+  enable(): ExecutorStatus;
+  status(): ExecutorStatus;
+  stepNow(reason?: string): Promise<ExecutorStatus>;
+}
+
 export interface MemoryModule {
   currentGoal(): string | null;
   setGoal(text: string | null): { goal: string | null };
@@ -435,6 +462,7 @@ export interface Agent {
   debug: {
     knockback: KnockbackDebugger;
   };
+  executor: ExecutorModule;
   events: EventStreamLike;
   inventory: InventoryModule;
   memory: MemoryModule;

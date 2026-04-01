@@ -3,6 +3,7 @@ import { summarizePayload, requireSpawned, serializeVec3 } from '../utils';
 import type {
   ChatHistoryEntry,
   ChatModule,
+  ExecutorStatus,
   EventStreamLike,
   MemoryModule,
   MinecraftBot,
@@ -40,6 +41,7 @@ const CONTAINER_BLOCK_NAMES = new Set([
 interface OrchestrationContext {
   chat: ChatModule;
   events: EventStreamLike;
+  getExecutorStatus?: () => ExecutorStatus | null;
   getPlannerStatus?: () => PlannerStatus | null;
   inventory: {
     items(): Array<{ count?: number | null; name?: string | null } | null>;
@@ -352,6 +354,7 @@ export function createOrchestrationModule(
       planning: {
         currentGoal: context.memory.currentGoal(),
         currentSkill: undefined,
+        executor: context.getExecutorStatus?.() ?? null,
         planner: context.getPlannerStatus?.() ?? null,
         plan: [],
         recentFailures,

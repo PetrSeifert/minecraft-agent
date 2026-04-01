@@ -1,6 +1,7 @@
 import type { BotConfig } from './types';
 
 const DEFAULT_DASHBOARD_PORT = 3400;
+const DEFAULT_GOAL_EXECUTOR_INTERVAL_MS = 5_000;
 const DEFAULT_HOST = 'localhost';
 const DEFAULT_GOAL_PLANNER_INTERVAL_MS = 60_000;
 const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
@@ -60,6 +61,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
     DEFAULT_GOAL_PLANNER_INTERVAL_MS,
     'GOAL_PLANNER_INTERVAL_MS',
   );
+  const goalExecutorIntervalMs = parsePositiveInteger(
+    env.GOAL_EXECUTOR_INTERVAL_MS,
+    DEFAULT_GOAL_EXECUTOR_INTERVAL_MS,
+    'GOAL_EXECUTOR_INTERVAL_MS',
+  );
   const debugKnockback =
     env.MC_DEBUG_KNOCKBACK?.trim() === '1' ||
     env.MC_DEBUG_KNOCKBACK?.trim()?.toLowerCase() === 'true';
@@ -81,6 +87,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
     openRouterApiKey,
     openRouterModel,
     openRouterBaseUrl,
+    goalExecutorIntervalMs,
     goalPlannerIntervalMs,
     debugKnockback,
     debugKnockbackFile,

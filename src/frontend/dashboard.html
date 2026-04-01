@@ -240,6 +240,18 @@ main {
   color: var(--text-muted);
 }
 
+.detail-value {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.detail-value.error {
+  color: var(--accent-red);
+}
+
 .stat-value {
   font-size: 18px;
   font-weight: 600;
@@ -289,6 +301,7 @@ main {
 .badge.amber { background: var(--accent-amber-dim); color: var(--accent-amber); }
 .badge.red { background: var(--accent-red-dim); color: var(--accent-red); }
 .badge.blue { background: var(--accent-blue-dim); color: var(--accent-blue); }
+.badge.cyan { background: rgba(64, 224, 208, 0.14); color: var(--accent-cyan); }
 .badge.purple { background: var(--accent-purple-dim); color: var(--accent-purple); }
 .badge.muted { background: var(--bg-surface); color: var(--text-muted); }
 
@@ -346,10 +359,10 @@ main {
 
 .event-payload {
   color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Inputs */
@@ -708,6 +721,15 @@ input:focus, textarea:focus, select:focus {
         <div><span class="stat-label">Last Planned</span><br><span id="ov-planner-last">--</span></div>
       </div>
     </div>
+
+    <div class="card">
+      <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Executor</div>
+      <div id="ov-executor-badges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
+      <div class="grid-2" style="font-size:11px;">
+        <div><span class="stat-label">Last Tool</span><br><span id="ov-executor-tool">--</span></div>
+        <div><span class="stat-label">Last Step</span><br><span id="ov-executor-last">--</span></div>
+      </div>
+    </div>
   </div>
 </div>
 </div>
@@ -802,12 +824,36 @@ input:focus, textarea:focus, select:focus {
         <div><span class="stat-label">Provider</span><br><span id="m-planner-provider">--</span></div>
         <div><span class="stat-label">Last Planned</span><br><span id="m-planner-last-planned">--</span></div>
         <div><span class="stat-label">Last Trigger</span><br><span id="m-planner-trigger">--</span></div>
-        <div><span class="stat-label">Last Error</span><br><span id="m-planner-error" style="color:var(--accent-red)">--</span></div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div class="stat-label">Last Error</div>
+        <div id="m-planner-error" class="detail-value error">None</div>
       </div>
       <div class="control-row">
         <button class="btn success" onclick="sendCmd('planner:on')">Enable</button>
         <button class="btn danger" onclick="sendCmd('planner:off')">Disable</button>
         <button class="btn primary" onclick="sendCmd('planner:now')">Replan Now</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Executor</div>
+      <div id="m-executor-badges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
+      <div class="grid-2" style="font-size:11px;margin-bottom:10px;">
+        <div><span class="stat-label">Model</span><br><span id="m-executor-model">--</span></div>
+        <div><span class="stat-label">Provider</span><br><span id="m-executor-provider">--</span></div>
+        <div><span class="stat-label">Last Step</span><br><span id="m-executor-last-step">--</span></div>
+        <div><span class="stat-label">Last Trigger</span><br><span id="m-executor-trigger">--</span></div>
+        <div><span class="stat-label">Last Tool</span><br><span id="m-executor-tool">--</span></div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div class="stat-label">Last Error</div>
+        <div id="m-executor-error" class="detail-value error">None</div>
+      </div>
+      <div class="control-row">
+        <button class="btn success" onclick="sendCmd('executor:on')">Enable</button>
+        <button class="btn danger" onclick="sendCmd('executor:off')">Disable</button>
+        <button class="btn primary" onclick="sendCmd('executor:now')">Step Now</button>
       </div>
     </div>
 
@@ -964,6 +1010,15 @@ input:focus, textarea:focus, select:focus {
       </div>
     </div>
 
+    <div class="card">
+      <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Executor</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn success" onclick="sendCmd('executor:on')">Enable</button>
+        <button class="btn danger" onclick="sendCmd('executor:off')">Disable</button>
+        <button class="btn primary" onclick="sendCmd('executor:now')">Step Now</button>
+      </div>
+    </div>
+
     <!-- Danger Zone -->
     <div class="card" style="border-color:var(--accent-red-dim);">
       <div class="card-title"><span class="indicator" style="background:var(--accent-red)"></span> Danger Zone</div>
@@ -1001,6 +1056,7 @@ const EVENT_CATEGORIES = {
   'world': ['world:block_update'],
   'window': ['window:open','window:close'],
   'planner': ['planner:request','planner:success','planner:failure','planner:skip','planner:state'],
+  'executor': ['executor:request','executor:success','executor:failure','executor:skip','executor:state','executor:wait','executor:goal_complete','executor:goal_blocked'],
   'goal': ['goal:update'],
   'memory': [],
 };
@@ -1048,6 +1104,13 @@ function connect() {
 }
 
 connect();
+
+function setDetailText(id, value, fallback = '--') {
+  const el = document.getElementById(id);
+  const text = value || fallback;
+  el.textContent = text;
+  el.title = text;
+}
 
 // ============================================================
 // API helpers
@@ -1230,6 +1293,21 @@ function renderOverview() {
   } else {
     document.getElementById('ov-planner-badges').innerHTML = '<span class="badge muted">Not configured</span>';
   }
+
+  // Executor
+  const ex = state.executor;
+  if (ex) {
+    const exBadges = [];
+    exBadges.push(ex.enabled
+      ? '<span class="badge green">Enabled</span>'
+      : '<span class="badge muted">Disabled</span>');
+    if (ex.inFlight) exBadges.push('<span class="badge cyan pulsing">In Flight</span>');
+    document.getElementById('ov-executor-badges').innerHTML = exBadges.join('');
+    document.getElementById('ov-executor-tool').textContent = ex.lastDecision?.tool || '--';
+    document.getElementById('ov-executor-last').textContent = ex.lastStepAt ? timeAgo(ex.lastStepAt) : 'Never';
+  } else {
+    document.getElementById('ov-executor-badges').innerHTML = '<span class="badge muted">Not configured</span>';
+  }
 }
 
 function renderRecentActivity() {
@@ -1241,10 +1319,11 @@ function renderRecentActivity() {
   let html = '';
   for (const ev of events) {
     const cat = eventCategory(ev.type);
+    const payloadText = summarize(ev.payload);
     html += `<div class="event-item">
       <span class="event-time">${formatTime(ev.timestamp)}</span>
       <span class="event-type"><span class="badge ${cat}">${esc(ev.type)}</span></span>
-      <span class="event-payload">${esc(summarize(ev.payload))}</span>
+      <span class="event-payload" title="${esc(payloadText)}">${esc(payloadText)}</span>
     </div>`;
   }
   document.getElementById('ov-recent-events').innerHTML = html;
@@ -1321,6 +1400,7 @@ function renderMemory() {
   if (!state) return;
   const mem = state.orchestration.memory;
   const planning = state.orchestration.planning;
+  const ex = state.executor;
   const pl = state.planner;
 
   // Goal
@@ -1338,8 +1418,31 @@ function renderMemory() {
     document.getElementById('m-planner-provider').textContent = pl.provider || '--';
     document.getElementById('m-planner-last-planned').textContent = pl.lastPlannedAt ? timeAgo(pl.lastPlannedAt) : 'Never';
     document.getElementById('m-planner-trigger').textContent = pl.lastTrigger || '--';
-    document.getElementById('m-planner-error').textContent = pl.lastError || 'None';
+    setDetailText('m-planner-error', pl.lastError, 'None');
     document.getElementById('m-planner-error').style.color = pl.lastError ? 'var(--accent-red)' : 'var(--text-muted)';
+  } else {
+    document.getElementById('m-planner-badges').innerHTML = '<span class="badge muted">Not configured</span>';
+    setDetailText('m-planner-error', null, 'None');
+    document.getElementById('m-planner-error').style.color = 'var(--text-muted)';
+  }
+
+  // Executor details
+  if (ex) {
+    const exBadges = [];
+    exBadges.push(ex.enabled ? '<span class="badge green">Enabled</span>' : '<span class="badge muted">Disabled</span>');
+    if (ex.inFlight) exBadges.push('<span class="badge cyan pulsing">In Flight</span>');
+    document.getElementById('m-executor-badges').innerHTML = exBadges.join('');
+    document.getElementById('m-executor-model').textContent = ex.model || '--';
+    document.getElementById('m-executor-provider').textContent = ex.provider || '--';
+    document.getElementById('m-executor-last-step').textContent = ex.lastStepAt ? timeAgo(ex.lastStepAt) : 'Never';
+    document.getElementById('m-executor-trigger').textContent = ex.lastTrigger || '--';
+    document.getElementById('m-executor-tool').textContent = ex.lastDecision?.tool || '--';
+    setDetailText('m-executor-error', ex.lastError, 'None');
+    document.getElementById('m-executor-error').style.color = ex.lastError ? 'var(--accent-red)' : 'var(--text-muted)';
+  } else {
+    document.getElementById('m-executor-badges').innerHTML = '<span class="badge muted">Not configured</span>';
+    setDetailText('m-executor-error', null, 'None');
+    document.getElementById('m-executor-error').style.color = 'var(--text-muted)';
   }
 
   // Working memory
@@ -1431,10 +1534,11 @@ function renderEventFeed() {
   let html = '';
   for (const ev of events) {
     const cat = eventCategory(ev.type);
+    const payloadText = summarize(ev.payload, { truncateValues: false });
     html += `<div class="event-item">
       <span class="event-time">${formatTime(ev.timestamp)}</span>
       <span class="event-type"><span class="badge ${cat}">${esc(ev.type)}</span></span>
-      <span class="event-payload">${esc(summarize(ev.payload))}</span>
+      <span class="event-payload" title="${esc(payloadText)}">${esc(payloadText)}</span>
     </div>`;
   }
   document.getElementById('event-list').innerHTML = html;
@@ -1604,12 +1708,15 @@ function eventCategory(type) {
   if (type.startsWith('action:success') || type.startsWith('bot:spawn') || type.startsWith('bot:login')) return 'green';
   if (type.startsWith('action:start') || type.startsWith('pathing:') || type.startsWith('physics:')) return 'blue';
   if (type.startsWith('safety:') || type.startsWith('entity:hurt') || type.startsWith('entity:dead')) return 'amber';
+  if (type.startsWith('executor:')) return 'cyan';
   if (type.startsWith('planner:') || type.startsWith('goal:')) return 'purple';
   if (type.startsWith('chat:')) return 'blue';
   return 'muted';
 }
 
-function summarize(payload) {
+function summarize(payload, options = {}) {
+  const truncateValues = options.truncateValues !== false;
+
   if (payload == null) return '';
   if (typeof payload === 'string') return payload;
   if (typeof payload !== 'object') return String(payload);
@@ -1622,7 +1729,7 @@ function summarize(payload) {
       continue;
     }
     const s = String(v);
-    if (s.length > 60) { parts.push(k + ': ' + s.slice(0, 57) + '...'); continue; }
+    if (truncateValues && s.length > 60) { parts.push(k + ': ' + s.slice(0, 57) + '...'); continue; }
     parts.push(k + ': ' + s);
   }
   return parts.join(' | ');

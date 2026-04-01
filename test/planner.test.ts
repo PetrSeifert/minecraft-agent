@@ -54,6 +54,7 @@ function createSnapshot(currentGoal: string | null): OrchestrationSnapshot {
     planning: {
       currentGoal,
       currentSkill: undefined,
+      executor: null,
       planner: null,
       plan: [],
       recentFailures: [],

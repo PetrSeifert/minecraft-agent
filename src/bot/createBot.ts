@@ -33,11 +33,12 @@ function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function createBot(config: BotConfig): MinecraftBot {
+export async function createBot(config: BotConfig): Promise<MinecraftBot> {
   const {
     dashboardPort,
     debugKnockback,
     debugKnockbackFile,
+    goalExecutorIntervalMs: _goalExecutorIntervalMs,
     goalPlannerIntervalMs: _goalPlannerIntervalMs,
     openRouterApiKey: _openRouterApiKey,
     openRouterBaseUrl: _openRouterBaseUrl,
@@ -64,7 +65,7 @@ export function createBot(config: BotConfig): MinecraftBot {
   });
 
   installProtocolCompat(bot);
-  const agent = createAgent(bot, config);
+  const agent = await createAgent(bot, config);
   const terminal = readline.createInterface({
     input: process.stdin,
     output: process.stdout,

@@ -7,11 +7,53 @@ import {
 
 import type {
   EventStreamLike,
+  JsonValue,
   InventoryModule,
   ItemLike,
   MinecraftBot,
   SerializedItem,
 } from '../../types';
+
+interface FoodDefinition {
+  effectiveQuality?: number;
+  foodPoints?: number;
+  id: number;
+  name: string;
+}
+
+function getFoodsByName(bot: MinecraftBot): Record<string, FoodDefinition> {
+  const registry = bot.registry as unknown as {
+    foodsByName?: Record<string, FoodDefinition>;
+  };
+
+  return registry.foodsByName ?? {};
+}
+
+function resolveFoodDefinition(bot: MinecraftBot, name: string): FoodDefinition {
+  const food = getFoodsByName(bot)[normalizeMinecraftName(name)];
+
+  if (!food) {
+    throw new Error(`Item is not edible: "${name}"`);
+  }
+
+  return food;
+}
+
+function isEdibleItem(bot: MinecraftBot, item: ItemLike | null | undefined): item is ItemLike {
+  if (!item?.name) {
+    return false;
+  }
+
+  return Boolean(getFoodsByName(bot)[item.name]);
+}
+
+function foodScore(food: FoodDefinition | null | undefined): number {
+  if (!food) {
+    return -1;
+  }
+
+  return food.effectiveQuality ?? food.foodPoints ?? 0;
+}
 
 export function createInventoryModule(
   bot: MinecraftBot,
@@ -80,6 +122,60 @@ export function createInventoryModule(
     };
   }
 
+  function selectFoodItem(name?: string): ItemLike {
+    if (name) {
+      const food = resolveFoodDefinition(bot, name);
+      const item = findItemByName(food.name);
+
+      if (!item) {
+        throw new Error(`Food item not in inventory: "${food.name}"`);
+      }
+
+      return item;
+    }
+
+    if (isEdibleItem(bot, bot.heldItem as ItemLike | null | undefined)) {
+      return bot.heldItem as ItemLike;
+    }
+
+    const edibleItems = bot.inventory
+      .items()
+      .filter((item) => isEdibleItem(bot, item as ItemLike | null | undefined))
+      .map((item) => item as unknown as ItemLike)
+      .sort((left, right) => {
+        const qualityDelta =
+          foodScore(getFoodsByName(bot)[right.name]) - foodScore(getFoodsByName(bot)[left.name]);
+
+        if (qualityDelta !== 0) {
+          return qualityDelta;
+        }
+
+        return right.count - left.count;
+      });
+
+    const candidate = edibleItems[0];
+
+    if (!candidate) {
+      throw new Error('No edible food items available in inventory');
+    }
+
+    return candidate;
+  }
+
+  async function consumeFoodOperation(name?: string): Promise<SerializedItem | null> {
+    const item = selectFoodItem(name);
+
+    await bot.equip(item as never, 'hand');
+    await bot.consume();
+
+    const serializedItem = serializeItem(item);
+    events.push('inventory:consume', {
+      item: serializedItem,
+    } as JsonValue);
+
+    return serializedItem;
+  }
+
   const equip = instrumentAsyncOperation(events, {
     action: 'inventory.equip',
     failure: ([name, destination = 'hand'], error) => ({
@@ -118,6 +214,25 @@ export function createInventoryModule(
     }),
   }, tossOperation);
 
+  const consumeFood = instrumentAsyncOperation(events, {
+    action: 'inventory.consumeFood',
+    failure: ([name], error) => ({
+      priority: 8,
+      tags: ['inventory', 'consume', 'food'],
+      text: `Failed to consume ${name ?? 'food'}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+    start: ([name]) => ({
+      priority: 4,
+      tags: ['inventory', 'consume', 'food'],
+      text: `Consuming ${name ?? 'food'}`,
+    }),
+    success: ([name], item) => ({
+      priority: 6,
+      tags: ['inventory', 'consume', 'food'],
+      text: `Consumed ${item?.name ?? name ?? 'food'}`,
+    }),
+  }, consumeFoodOperation);
+
   function hotbarSlot(): number {
     return bot.quickBarSlot;
   }
@@ -133,6 +248,7 @@ export function createInventoryModule(
 
   return {
     count,
+    consumeFood,
     equip,
     findItemByName,
     heldItem,

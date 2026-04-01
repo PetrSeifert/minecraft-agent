@@ -153,6 +153,15 @@ async function executeCommand(
       case 'planner:now': {
         return { ok: true, result: await agent.planner.replanNow('dashboard') };
       }
+      case 'executor:on': {
+        return { ok: true, result: agent.executor.enable() };
+      }
+      case 'executor:off': {
+        return { ok: true, result: agent.executor.disable() };
+      }
+      case 'executor:now': {
+        return { ok: true, result: await agent.executor.stepNow('dashboard') };
+      }
       case 'findblock': {
         if (!args[0]) throw new Error('Block name required');
         const maxDist = args[1] ? parseNumber(args[1], 'distance') : 32;

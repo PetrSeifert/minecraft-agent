@@ -39,6 +39,21 @@ function createAgentStub() {
         enabled: false,
       },
     },
+    executor: {
+      status() {
+        return {
+          currentGoal: 'wait for spawn',
+          enabled: false,
+          inFlight: false,
+          lastDecision: null,
+          lastError: null,
+          lastStepAt: null,
+          lastTrigger: null,
+          model: '',
+          provider: 'openrouter' as const,
+        };
+      },
+    },
     events,
     inventory: {
       summary() {
@@ -152,6 +167,7 @@ test('state adapter returns a fallback snapshot before spawn', () => {
 
   assert.equal(state.session.status, 'connecting');
   assert.equal(state.orchestration.planning.currentGoal, 'wait for spawn');
+  assert.equal(state.orchestration.planning.executor?.enabled, false);
   assert.deepEqual(state.orchestration.perception.recentChat, ['Connecting...']);
   assert.deepEqual(state.orchestration.perception.recentEvents, ['bot:error']);
   assert.equal(state.orchestration.self.position, null);

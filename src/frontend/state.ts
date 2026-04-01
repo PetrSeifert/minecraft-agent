@@ -2,6 +2,7 @@ import type {
   Agent,
   BotConfig,
   ChatHistoryEntry,
+  ExecutorStatus,
   InventorySummary,
   MemoryState,
   MinecraftBot,
@@ -39,6 +40,7 @@ export interface FrontendSession {
 
 export interface FrontendState {
   chatHistory: ChatHistoryEntry[];
+  executor: ExecutorStatus | null;
   inventory: InventorySummary;
   orchestration: OrchestrationSnapshot;
   pathing: PathingStatus;
@@ -67,6 +69,7 @@ function formatChatEntry(entry: ChatHistoryEntry): string {
 
 function createPendingOrchestrationSnapshot(agent: Agent): OrchestrationSnapshot {
   const memory = agent.memory.state();
+  const executor = agent.executor.status();
   const planner = agent.planner.status();
 
   return {
@@ -90,6 +93,7 @@ function createPendingOrchestrationSnapshot(agent: Agent): OrchestrationSnapshot
     planning: {
       currentGoal: agent.memory.currentGoal(),
       currentSkill: undefined,
+      executor,
       planner,
       plan: [],
       recentFailures: memory.working.filter((item) => item.tags.includes('failure')),
@@ -153,6 +157,7 @@ export function createStateAdapter(
 
     return {
       chatHistory: agent.chat.history(50),
+      executor: agent.executor.status(),
       inventory: agent.inventory.summary(),
       orchestration,
       pathing: agent.pathing.status(),

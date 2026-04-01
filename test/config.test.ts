@@ -13,13 +13,14 @@ function createEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   };
 }
 
-test('loadConfig applies default OpenRouter base URL and planner interval', () => {
+test('loadConfig applies default OpenRouter base URL and planner and executor intervals', () => {
   const config = loadConfig(createEnv({
     OPENROUTER_API_KEY: 'test-key',
     OPENROUTER_MODEL: 'openrouter/test-model',
   }));
 
   assert.equal(config.openRouterBaseUrl, 'https://openrouter.ai/api/v1');
+  assert.equal(config.goalExecutorIntervalMs, 5_000);
   assert.equal(config.goalPlannerIntervalMs, 60_000);
   assert.equal(config.openRouterApiKey, 'test-key');
   assert.equal(config.openRouterModel, 'openrouter/test-model');
@@ -39,5 +40,12 @@ test('loadConfig validates planner interval', () => {
   assert.throws(
     () => loadConfig(createEnv({ GOAL_PLANNER_INTERVAL_MS: '0' })),
     /Invalid GOAL_PLANNER_INTERVAL_MS value/,
+  );
+});
+
+test('loadConfig validates executor interval', () => {
+  assert.throws(
+    () => loadConfig(createEnv({ GOAL_EXECUTOR_INTERVAL_MS: '0' })),
+    /Invalid GOAL_EXECUTOR_INTERVAL_MS value/,
   );
 });

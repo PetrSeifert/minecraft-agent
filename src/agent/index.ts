@@ -3,6 +3,8 @@ import { EventStream } from './eventStream';
 import { createActionsModule } from './modules/actions';
 import { createChatModule } from './modules/chat';
 import { createCombatModule } from './modules/combat';
+import { createExecutorModule } from './modules/executor';
+import { createExecutorToolRegistry } from './modules/executorTools';
 import { createInventoryModule } from './modules/inventory';
 import { createMemoryModule } from './modules/memory';
 import { createOrchestrationModule } from './modules/orchestration';
@@ -10,6 +12,7 @@ import { createPathingModule } from './modules/pathing';
 import { createPlannerModule } from './modules/planner';
 import { createSafetyModule } from './modules/safety';
 import { createWorldModule } from './modules/world';
+import { createOpenRouterExecutorClient } from '../llm/openRouterExecutorClient';
 import { createOpenRouterGoalClient } from '../llm/openRouterClient';
 import {
   serializeBlock,
@@ -18,12 +21,18 @@ import {
   serializeWindow,
 } from './utils';
 
-import type { Agent, BotConfig, MinecraftBot, PlannerStatus } from '../types';
+import type {
+  Agent,
+  BotConfig,
+  ExecutorStatus,
+  MinecraftBot,
+  PlannerStatus,
+} from '../types';
 
-export function createAgent(
+export async function createAgent(
   bot: MinecraftBot,
   config: Partial<BotConfig> = {},
-): Agent {
+): Promise<Agent> {
   const plannerConfigured = Boolean(
     config.openRouterApiKey?.trim() && config.openRouterModel?.trim(),
   );
@@ -54,10 +63,22 @@ export function createAgent(
     events,
     safety,
   });
+  const executorClient = createOpenRouterExecutorClient({
+    apiKey: config.openRouterApiKey ?? '',
+    baseUrl: config.openRouterBaseUrl ?? 'https://openrouter.ai/api/v1',
+    model: config.openRouterModel ?? '',
+  });
+
+  if (plannerConfigured) {
+    await executorClient.ensureToolSupport();
+  }
+
   let plannerStatusAccessor: (() => PlannerStatus) | null = null;
+  let executorStatusAccessor: (() => ExecutorStatus) | null = null;
   const orchestration = createOrchestrationModule(bot, {
     chat,
     events,
+    getExecutorStatus: () => executorStatusAccessor?.() ?? null,
     getPlannerStatus: () => plannerStatusAccessor?.() ?? null,
     inventory,
     memory,
@@ -78,6 +99,28 @@ export function createAgent(
     startEnabled: plannerConfigured,
   });
   plannerStatusAccessor = () => planner.status();
+  const executorTools = createExecutorToolRegistry({
+    actions,
+    combat,
+    events,
+    inventory,
+    memory,
+    pathing,
+    safety,
+    world,
+  });
+  const executor = createExecutorModule(bot, {
+    client: executorClient,
+    events,
+    goalExecutorIntervalMs: config.goalExecutorIntervalMs ?? 5_000,
+    memory,
+    orchestration,
+    safety,
+    tools: executorTools,
+  }, {
+    startEnabled: plannerConfigured,
+  });
+  executorStatusAccessor = () => executor.status();
   const knockbackDebug = createKnockbackDebugger(bot, pathing, {
     enabled: config.debugKnockback,
     filePath: config.debugKnockbackFile,
@@ -90,6 +133,7 @@ export function createAgent(
     debug: {
       knockback: knockbackDebug,
     },
+    executor,
     events,
     inventory,
     memory,
