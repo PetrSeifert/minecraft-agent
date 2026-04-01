@@ -26,6 +26,11 @@ interface ChatCompletionResponse {
   };
 }
 
+interface ParsedResponseBody {
+  payload: ChatCompletionResponse | null;
+  rawBody: string;
+}
+
 export interface OpenRouterGoalClient {
   chooseGoal(snapshot: OrchestrationSnapshot): Promise<string>;
   readonly model: string;
@@ -50,6 +55,28 @@ function buildUserPrompt(snapshot: OrchestrationSnapshot): string {
     },
     snapshot,
   });
+}
+
+function truncateBody(text: string, limit = 200): string {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+
+  if (!normalized) {
+    return '';
+  }
+
+  return normalized.length > limit
+    ? `${normalized.slice(0, limit - 1)}…`
+    : normalized;
+}
+
+function validateClientConfig(config: OpenRouterClientConfig): void {
+  if (!config.apiKey.trim()) {
+    throw new Error('OpenRouter API key is not configured');
+  }
+
+  if (!config.model.trim()) {
+    throw new Error('OpenRouter model is not configured');
+  }
 }
 
 function extractMessageContent(payload: ChatCompletionResponse): string {
@@ -115,11 +142,50 @@ function buildErrorMessage(responsePayload: ChatCompletionResponse, status: numb
   return message ? `OpenRouter request failed (${status}): ${message}` : `OpenRouter request failed (${status})`;
 }
 
+async function parseResponseBody(response: Response): Promise<ParsedResponseBody> {
+  const rawBody = await response.text();
+
+  if (!rawBody.trim()) {
+    return {
+      payload: null,
+      rawBody,
+    };
+  }
+
+  try {
+    return {
+      payload: JSON.parse(rawBody) as ChatCompletionResponse,
+      rawBody,
+    };
+  } catch {
+    return {
+      payload: null,
+      rawBody,
+    };
+  }
+}
+
+function buildHttpErrorMessage(
+  parsedBody: ParsedResponseBody,
+  status: number,
+): string {
+  if (parsedBody.payload) {
+    return buildErrorMessage(parsedBody.payload, status);
+  }
+
+  const snippet = truncateBody(parsedBody.rawBody);
+  return snippet
+    ? `OpenRouter request failed (${status}): ${snippet}`
+    : `OpenRouter request failed (${status})`;
+}
+
 export function createOpenRouterGoalClient(
   config: OpenRouterClientConfig,
   fetchImpl: FetchLike = fetch,
 ): OpenRouterGoalClient {
   async function chooseGoal(snapshot: OrchestrationSnapshot): Promise<string> {
+    validateClientConfig(config);
+
     const response = await fetchImpl(`${config.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -141,14 +207,17 @@ export function createOpenRouterGoalClient(
         ],
       }),
     });
-
-    const payload = await response.json() as ChatCompletionResponse;
+    const parsedBody = await parseResponseBody(response);
 
     if (!response.ok) {
-      throw new Error(buildErrorMessage(payload, response.status));
+      throw new Error(buildHttpErrorMessage(parsedBody, response.status));
     }
 
-    return parseGoalResponse(extractMessageContent(payload));
+    if (!parsedBody.payload) {
+      throw new Error('OpenRouter response was not valid JSON: expected a JSON object body');
+    }
+
+    return parseGoalResponse(extractMessageContent(parsedBody.payload));
   }
 
   return {
@@ -159,8 +228,12 @@ export function createOpenRouterGoalClient(
 }
 
 export const openRouterClientInternals = {
+  buildHttpErrorMessage,
   buildUserPrompt,
   extractMessageContent,
+  parseResponseBody,
   parseGoalResponse,
   stripCodeFence,
+  truncateBody,
+  validateClientConfig,
 };

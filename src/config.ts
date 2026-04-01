@@ -40,14 +40,8 @@ function parsePositiveInteger(
   return value;
 }
 
-function parseRequiredEnv(env: NodeJS.ProcessEnv, key: string): string {
-  const value = env[key]?.trim();
-
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
-
-  return value;
+function parseOptionalEnv(env: NodeJS.ProcessEnv, key: string): string {
+  return env[key]?.trim() || '';
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
@@ -56,8 +50,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
   const password = env.MC_PASSWORD?.trim() || undefined;
   const auth = parseAuth(env.MC_AUTH, Boolean(password));
   const version = env.MC_VERSION?.trim() || false;
-  const openRouterApiKey = parseRequiredEnv(env, 'OPENROUTER_API_KEY');
-  const openRouterModel = parseRequiredEnv(env, 'OPENROUTER_MODEL');
+  const openRouterApiKey = parseOptionalEnv(env, 'OPENROUTER_API_KEY');
+  const openRouterModel = parseOptionalEnv(env, 'OPENROUTER_MODEL');
   const openRouterBaseUrl =
     env.OPENROUTER_BASE_URL?.trim() || DEFAULT_OPENROUTER_BASE_URL;
   const goalPlannerIntervalMs = parsePositiveInteger(

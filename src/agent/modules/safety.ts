@@ -1,3 +1,5 @@
+import { goals } from 'mineflayer-pathfinder';
+
 import { isHostileEntity, serializeEntity, serializeVec3, toVec3 } from '../utils';
 import { instrumentAsyncOperation } from '../operationEvents';
 
@@ -13,6 +15,7 @@ import type {
   WorldModule,
 } from '../../types';
 
+const { GoalBlock } = goals;
 const FIRE_BLOCK_NAMES = new Set([
   'campfire',
   'fire',
@@ -39,6 +42,7 @@ const HIGH_DANGER_HOSTILE_NAMES = new Set([
   'ravager',
   'warden',
 ]);
+const SAFE_POSITION_REACHABILITY_CHECK_LIMIT = 8;
 
 interface SafetyContext {
   combat: CombatModule;
@@ -69,6 +73,10 @@ export function createSafetyModule(
 
   function isHazardousBlockName(name: string | null): boolean {
     return name ? FIRE_BLOCK_NAMES.has(name) : false;
+  }
+
+  function isWaterBlockName(name: string | null): boolean {
+    return name === 'water';
   }
 
   function entityFireFlag(): boolean {
@@ -259,8 +267,7 @@ export function createSafetyModule(
 
     const origin = bot.entity.position.floored();
     const avoidRadius = options.avoidRadius ?? 6;
-    let bestPosition: typeof origin | null = null;
-    let bestScore = Infinity;
+    const candidates: Array<{ position: typeof origin; score: number }> = [];
 
     for (let y = -2; y <= 2; y += 1) {
       for (let x = -maxDistance; x <= maxDistance; x += 1) {
@@ -283,15 +290,67 @@ export function createSafetyModule(
             score -= Math.min(candidate.distanceTo(toVec3(avoidPosition)), 20) * 0.6;
           }
 
-          if (score < bestScore) {
-            bestScore = score;
-            bestPosition = candidate.clone();
-          }
+          candidates.push({
+            position: candidate.clone(),
+            score,
+          });
         }
       }
     }
 
-    return bestPosition;
+    candidates.sort((left, right) => left.score - right.score);
+
+    for (const candidate of candidates.slice(0, SAFE_POSITION_REACHABILITY_CHECK_LIMIT)) {
+      if (canReachPosition(candidate.position)) {
+        return candidate.position;
+      }
+    }
+
+    return candidates[0]?.position ?? null;
+  }
+
+  function canReachPosition(position: Vec3Like): boolean {
+    if (!bot.entity?.position || !bot.pathfinder?.getPathTo) {
+      return true;
+    }
+
+    try {
+      const target = toVec3(position).floored();
+      const result = bot.pathfinder.getPathTo(
+        pathing.movements as never,
+        new GoalBlock(target.x, target.y, target.z),
+        250,
+      );
+
+      return result.status === 'success';
+    } catch {
+      return true;
+    }
+  }
+
+  function findWaterEscapeTarget(maxDistance = 12) {
+    const waterBlocks = world.findBlocksByName('water', {
+      count: 12,
+      maxDistance,
+    });
+
+    for (const waterBlock of waterBlocks) {
+      if (!waterBlock?.position) {
+        continue;
+      }
+
+      const position = toVec3(waterBlock.position).floored();
+      const feet = blockNameAt(position);
+      const head = blockNameAt(position.offset(0, 1, 0));
+
+      if (!isWaterBlockName(feet) && !isWaterBlockName(head)) {
+        continue;
+      }
+
+      return serializeVec3(position);
+    }
+
+    return null;
   }
 
   async function escapeDrowning() {
@@ -316,14 +375,16 @@ export function createSafetyModule(
   }
 
   async function escapeFire() {
-    const water = world.findBlockByName('water', { maxDistance: 12 });
+    const waterTarget = findWaterEscapeTarget(12);
 
-    if (water?.position) {
-      await pathing.goto(water.position, 1);
+    if (waterTarget) {
+      await pathing.goto(waterTarget, 0, {
+        ignorePause: true,
+      });
 
       return {
         action: 'water_escape',
-        target: water.position,
+        target: waterTarget,
       };
     }
 
@@ -553,11 +614,36 @@ export function createSafetyModule(
     disable();
   });
 
-  return {
-    disable,
-    enable,
-    escapeDanger,
-    retreatFromNearestHostile,
-    status,
-  };
+    return {
+      disable,
+      enable,
+      escapeDanger,
+      retreatFromNearestHostile,
+      status,
+    };
 }
+
+export const safetyInternals = {
+  canReachPosition: (
+    bot: MinecraftBot,
+    pathing: PathingModule,
+    position: Vec3Like,
+  ) => {
+    if (!bot.entity?.position || !bot.pathfinder?.getPathTo) {
+      return true;
+    }
+
+    try {
+      const target = toVec3(position).floored();
+      const result = bot.pathfinder.getPathTo(
+        pathing.movements as never,
+        new GoalBlock(target.x, target.y, target.z),
+        250,
+      );
+
+      return result.status === 'success';
+    } catch {
+      return true;
+    }
+  },
+};

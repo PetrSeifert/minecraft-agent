@@ -153,6 +153,37 @@ test('OpenRouter client rejects malformed and empty goal responses', async () =>
   );
 });
 
+test('OpenRouter client surfaces non-JSON error responses with HTTP status context', async () => {
+  const client = createOpenRouterGoalClient({
+    apiKey: 'test-key',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    model: 'openrouter/test-model',
+  }, async () => new Response('upstream gateway failed', {
+    status: 502,
+    headers: {
+      'Content-Type': 'text/plain',
+    },
+  }));
+
+  await assert.rejects(
+    () => client.chooseGoal(createSnapshot()),
+    /OpenRouter request failed \(502\): upstream gateway failed/,
+  );
+});
+
+test('OpenRouter client fails fast when planner credentials are missing', async () => {
+  const client = createOpenRouterGoalClient({
+    apiKey: '   ',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    model: '',
+  });
+
+  await assert.rejects(
+    () => client.chooseGoal(createSnapshot()),
+    /OpenRouter API key is not configured/,
+  );
+});
+
 test('parseGoalResponse accepts fenced JSON and enforces exact shape', () => {
   assert.equal(
     openRouterClientInternals.parseGoalResponse('```json\n{"goal":"Find shelter"}\n```'),

@@ -24,6 +24,9 @@ export function createAgent(
   bot: MinecraftBot,
   config: Partial<BotConfig> = {},
 ): Agent {
+  const plannerConfigured = Boolean(
+    config.openRouterApiKey?.trim() && config.openRouterModel?.trim(),
+  );
   const events = new EventStream();
   const chat = createChatModule(bot, events);
   const world = createWorldModule(bot);
@@ -71,6 +74,8 @@ export function createAgent(
     goalPlannerIntervalMs: config.goalPlannerIntervalMs ?? 60_000,
     memory,
     orchestration,
+  }, {
+    startEnabled: plannerConfigured,
   });
   plannerStatusAccessor = () => planner.status();
   const knockbackDebug = createKnockbackDebugger(bot, pathing, {

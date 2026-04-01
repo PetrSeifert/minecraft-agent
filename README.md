@@ -28,10 +28,12 @@ npm run typecheck
 - `MC_PASSWORD`: Optional. Required for `MC_AUTH=microsoft`.
 - `MC_AUTH`: `offline` for local/cracked servers, `microsoft` for Microsoft account login.
 - `MC_VERSION`: Optional. Leave empty to auto-detect the server version.
-- `OPENROUTER_API_KEY`: OpenRouter API key used by the goal planner.
-- `OPENROUTER_MODEL`: OpenRouter model ID used for goal selection.
+- `OPENROUTER_API_KEY`: Optional. OpenRouter API key used by the goal planner.
+- `OPENROUTER_MODEL`: Optional. OpenRouter model ID used for goal selection.
 - `OPENROUTER_BASE_URL`: Optional. Defaults to `https://openrouter.ai/api/v1`.
 - `GOAL_PLANNER_INTERVAL_MS`: Optional. Defaults to `60000`.
+
+If the OpenRouter key/model are omitted, the bot still starts, but the planner stays disabled until credentials are configured.
 
 ## Current behavior
 
@@ -70,6 +72,7 @@ Type normal text to send chat. Use slash commands for primitives:
 - `/pos`
 - `/inventory`
 - `/entities [distance]`
+- `/inspect [distance]`
 - `/findblock <block_name> [distance]`
 - `/block <x> <y> <z>`
 - `/goto <x> <y> <z> [range]`

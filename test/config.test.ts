@@ -9,14 +9,15 @@ function createEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     MC_HOST: 'localhost',
     MC_PORT: '25565',
     MC_USERNAME: 'MineflayerBot',
-    OPENROUTER_API_KEY: 'test-key',
-    OPENROUTER_MODEL: 'openrouter/test-model',
     ...overrides,
   };
 }
 
 test('loadConfig applies default OpenRouter base URL and planner interval', () => {
-  const config = loadConfig(createEnv());
+  const config = loadConfig(createEnv({
+    OPENROUTER_API_KEY: 'test-key',
+    OPENROUTER_MODEL: 'openrouter/test-model',
+  }));
 
   assert.equal(config.openRouterBaseUrl, 'https://openrouter.ai/api/v1');
   assert.equal(config.goalPlannerIntervalMs, 60_000);
@@ -24,15 +25,14 @@ test('loadConfig applies default OpenRouter base URL and planner interval', () =
   assert.equal(config.openRouterModel, 'openrouter/test-model');
 });
 
-test('loadConfig throws when required OpenRouter env is missing', () => {
-  assert.throws(
-    () => loadConfig(createEnv({ OPENROUTER_API_KEY: '   ' })),
-    /Missing required environment variable: OPENROUTER_API_KEY/,
-  );
-  assert.throws(
-    () => loadConfig(createEnv({ OPENROUTER_MODEL: '' })),
-    /Missing required environment variable: OPENROUTER_MODEL/,
-  );
+test('loadConfig leaves OpenRouter credentials blank when planner is not configured', () => {
+  const config = loadConfig(createEnv({
+    OPENROUTER_API_KEY: '   ',
+    OPENROUTER_MODEL: '',
+  }));
+
+  assert.equal(config.openRouterApiKey, '');
+  assert.equal(config.openRouterModel, '');
 });
 
 test('loadConfig validates planner interval', () => {
