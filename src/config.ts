@@ -1,5 +1,6 @@
 import type { BotConfig } from './types';
 
+const DEFAULT_DASHBOARD_PORT = 3400;
 const DEFAULT_HOST = 'localhost';
 const DEFAULT_GOAL_PLANNER_INTERVAL_MS = 60_000;
 const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
@@ -64,6 +65,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
     env.MC_DEBUG_KNOCKBACK?.trim()?.toLowerCase() === 'true';
   const debugKnockbackFile =
     env.MC_DEBUG_KNOCKBACK_FILE?.trim() || 'knockback-debug.log';
+  const dashboardPort = parsePositiveInteger(
+    env.DASHBOARD_PORT,
+    DEFAULT_DASHBOARD_PORT,
+    'DASHBOARD_PORT',
+  );
 
   return {
     host,
@@ -78,5 +84,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
     goalPlannerIntervalMs,
     debugKnockback,
     debugKnockbackFile,
+    dashboardPort,
   };
 }

@@ -3,6 +3,8 @@ import * as readline from 'node:readline';
 import { createBot as createMineflayerBot } from 'mineflayer';
 
 import { createAgent } from '../agent';
+import { startDashboardServer } from '../frontend/server';
+import { createStateAdapter } from '../frontend/state';
 import { installPhysicsCompat } from './installPhysicsCompat';
 import { installProtocolCompat } from './installProtocolCompat';
 import { createTerminal } from './terminal';
@@ -33,6 +35,7 @@ function formatError(error: unknown): string {
 
 export function createBot(config: BotConfig): MinecraftBot {
   const {
+    dashboardPort,
     debugKnockback,
     debugKnockbackFile,
     goalPlannerIntervalMs: _goalPlannerIntervalMs,
@@ -122,6 +125,9 @@ export function createBot(config: BotConfig): MinecraftBot {
   });
 
   createTerminal(bot, agent, terminal);
+
+  const stateAdapter = createStateAdapter(bot, agent, config);
+  startDashboardServer(bot, agent, stateAdapter.snapshot, dashboardPort);
 
   return bot;
 }

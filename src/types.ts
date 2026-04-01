@@ -13,6 +13,7 @@ export interface Vec3Like {
 
 export interface BotConfig {
   auth: 'microsoft' | 'mojang' | 'offline';
+  dashboardPort: number;
   debugKnockback: boolean;
   debugKnockbackFile: string;
   goalPlannerIntervalMs: number;
@@ -445,6 +446,7 @@ export interface Agent {
 }
 
 export interface EventStreamLike {
+  on(event: string, listener: (...args: unknown[]) => void): unknown;
   push(type: string, payload?: unknown): StreamEvent;
   recent(limit?: number, type?: string | null): StreamEvent[];
 }
