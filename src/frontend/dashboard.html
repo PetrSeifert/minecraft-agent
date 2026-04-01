@@ -865,6 +865,47 @@ input:focus, textarea:focus, select:focus {
 
   <div>
     <div class="card">
+      <div class="card-title"><span class="indicator" style="background:var(--accent-blue)"></span> Agent Context</div>
+      <div class="grid-2" style="font-size:11px;margin-bottom:10px;">
+        <div><span class="stat-label">Goal</span><br><span id="m-context-goal">--</span></div>
+        <div><span class="stat-label">Risk</span><br><span id="m-context-risk">--</span></div>
+        <div><span class="stat-label">Position</span><br><span id="m-context-position">--</span></div>
+        <div><span class="stat-label">Biome</span><br><span id="m-context-biome">--</span></div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div class="stat-label">Perception</div>
+        <div id="m-context-perception" class="detail-value">--</div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div class="stat-label">Recent Chat</div>
+        <div id="m-context-chat" class="detail-value">--</div>
+      </div>
+      <div>
+        <div class="stat-label">Live Snapshot</div>
+        <div id="m-context-json" class="result-display" style="max-height:300px;margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Executor Trace</div>
+      <div id="m-executor-trace-badges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
+      <div class="grid-2" style="font-size:11px;margin-bottom:10px;">
+        <div><span class="stat-label">Last Event</span><br><span id="m-executor-trace-event">--</span></div>
+        <div><span class="stat-label">Recorded</span><br><span id="m-executor-trace-time">--</span></div>
+        <div><span class="stat-label">Trigger</span><br><span id="m-executor-trace-trigger">--</span></div>
+        <div><span class="stat-label">Outcome</span><br><span id="m-executor-trace-outcome">--</span></div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div class="stat-label">Decision Args</div>
+        <div id="m-executor-trace-args" class="result-display" style="max-height:140px;margin-top:6px;"></div>
+      </div>
+      <div>
+        <div class="stat-label">Tool Result</div>
+        <div id="m-executor-trace-result" class="result-display" style="max-height:220px;margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-title"><span class="indicator" style="background:var(--accent-amber)"></span> Working Memory</div>
       <div id="m-working"></div>
     </div>
@@ -1085,6 +1126,7 @@ function connect() {
 
   eventSource.addEventListener('state', (e) => {
     state = JSON.parse(e.data);
+    mergeEvents(state.recentEvents || []);
     render();
     document.getElementById('connection-overlay').classList.remove('visible');
   });
@@ -1105,11 +1147,60 @@ function connect() {
 
 connect();
 
+function mergeEvents(events) {
+  if (!Array.isArray(events) || events.length === 0) return;
+  const seen = new Set(allEvents.map(event => event.id));
+  const merged = [...allEvents];
+  for (const event of events) {
+    if (seen.has(event.id)) continue;
+    seen.add(event.id);
+    merged.push(event);
+  }
+  merged.sort((a, b) => a.id - b.id);
+  allEvents = merged.length > 500 ? merged.slice(-400) : merged;
+}
+
 function setDetailText(id, value, fallback = '--') {
   const el = document.getElementById(id);
   const text = value || fallback;
   el.textContent = text;
   el.title = text;
+}
+
+function setResultText(id, value, fallback = '--') {
+  const el = document.getElementById(id);
+  const text = value == null ? fallback : safeStringify(value, fallback);
+  el.textContent = text;
+  el.title = text;
+}
+
+function safeStringify(value, fallback = '--') {
+  if (value == null) return fallback;
+  if (typeof value === 'string') return value;
+  try {
+    const text = JSON.stringify(value, null, 2);
+    return text == null ? fallback : text;
+  } catch {
+    return String(value);
+  }
+}
+
+function findLatestEvent(types) {
+  const wanted = new Set(types);
+  for (let i = allEvents.length - 1; i >= 0; i -= 1) {
+    if (wanted.has(allEvents[i].type)) return allEvents[i];
+  }
+  return null;
+}
+
+function formatPosition(pos) {
+  if (!pos) return '--';
+  return `${pos.x}, ${pos.y}, ${pos.z}`;
+}
+
+function joinPreview(items, fallback = '--', limit = 4) {
+  if (!Array.isArray(items) || items.length === 0) return fallback;
+  return items.slice(0, limit).join(', ');
 }
 
 // ============================================================
@@ -1399,7 +1490,9 @@ function renderWorld() {
 function renderMemory() {
   if (!state) return;
   const mem = state.orchestration.memory;
+  const perception = state.orchestration.perception;
   const planning = state.orchestration.planning;
+  const self = state.orchestration.self;
   const ex = state.executor;
   const pl = state.planner;
 
@@ -1444,6 +1537,93 @@ function renderMemory() {
     setDetailText('m-executor-error', null, 'None');
     document.getElementById('m-executor-error').style.color = 'var(--text-muted)';
   }
+
+  const visibleArea = perception.visibleArea || {};
+  const contextPerception = [
+    `nearby blocks: ${(perception.nearbyBlocks || []).length}`,
+    `nearby entities: ${(perception.nearbyEntities || []).length}`,
+    `hostiles: ${(perception.hostiles || []).length}`,
+    `hazards: ${(visibleArea.hazards || []).length}`,
+    `containers: ${(perception.containers || []).length}`,
+    `shelters: ${(perception.shelters || []).length}`,
+    `focus block: ${visibleArea.focus?.blockAtCursor?.name || 'none'}`,
+    `focus entity: ${visibleArea.focus?.entityAtCursor?.name || visibleArea.focus?.entityAtCursor?.username || 'none'}`,
+  ].join(' | ');
+
+  document.getElementById('m-context-goal').textContent = planning.currentGoal || 'None';
+  document.getElementById('m-context-risk').textContent = self.risk || '--';
+  document.getElementById('m-context-risk').style.color =
+    self.risk === 'high' ? 'var(--accent-red)' : self.risk === 'medium' ? 'var(--accent-amber)' : 'var(--accent-green)';
+  document.getElementById('m-context-position').textContent = formatPosition(self.position);
+  document.getElementById('m-context-biome').textContent = self.biome || '--';
+  setDetailText('m-context-perception', contextPerception, '--');
+  setDetailText('m-context-chat', joinPreview(perception.recentChat, 'No recent chat'), 'No recent chat');
+  setResultText('m-context-json', {
+    goal: planning.currentGoal,
+    self,
+    perception: {
+      nearbyBlocks: perception.nearbyBlocks,
+      nearbyEntities: perception.nearbyEntities,
+      hostiles: perception.hostiles,
+      recentChat: perception.recentChat,
+      recentEvents: perception.recentEvents,
+      shelters: perception.shelters,
+      containers: perception.containers,
+      visibleArea,
+    },
+    memory: {
+      working: (mem.working || []).slice(-8),
+      summaries: (mem.shortTerm?.summaries || []).slice(-5),
+      recentFailures: planning.recentFailures || [],
+    },
+  });
+
+  const latestExecutorEvent = findLatestEvent([
+    'executor:success',
+    'executor:failure',
+    'executor:skip',
+    'executor:wait',
+    'executor:goal_complete',
+    'executor:goal_blocked',
+    'executor:state',
+    'executor:request',
+  ]);
+  const latestExecutorSuccess = findLatestEvent(['executor:success']);
+  const tracePayload = latestExecutorEvent?.payload || {};
+  const successPayload = latestExecutorSuccess?.payload || {};
+  const traceBadges = [];
+
+  if (latestExecutorEvent) {
+    const traceType = latestExecutorEvent.type.split(':')[1] || latestExecutorEvent.type;
+    const badgeTone =
+      latestExecutorEvent.type === 'executor:success' ? 'green' :
+      latestExecutorEvent.type === 'executor:failure' ? 'red' :
+      latestExecutorEvent.type === 'executor:skip' ? 'amber' :
+      latestExecutorEvent.type === 'executor:request' ? 'cyan' : 'blue';
+    traceBadges.push(`<span class="badge ${badgeTone}">${esc(traceType.replaceAll('_', ' '))}</span>`);
+  } else {
+    traceBadges.push('<span class="badge muted">No executor events</span>');
+  }
+
+  if (successPayload.tool) {
+    traceBadges.push(`<span class="badge cyan">${esc(successPayload.tool)}</span>`);
+  }
+
+  if (successPayload.outcome) {
+    traceBadges.push(`<span class="badge blue">${esc(String(successPayload.outcome))}</span>`);
+  }
+
+  document.getElementById('m-executor-trace-badges').innerHTML = traceBadges.join('');
+  document.getElementById('m-executor-trace-event').textContent = latestExecutorEvent?.type || '--';
+  document.getElementById('m-executor-trace-time').textContent = latestExecutorEvent?.timestamp ? timeAgo(latestExecutorEvent.timestamp) : '--';
+  document.getElementById('m-executor-trace-trigger').textContent = tracePayload.trigger || successPayload.trigger || '--';
+  document.getElementById('m-executor-trace-outcome').textContent = successPayload.outcome || tracePayload.reason || '--';
+  setResultText('m-executor-trace-args', successPayload.args, 'No successful tool call yet');
+  setResultText(
+    'm-executor-trace-result',
+    successPayload.result ?? tracePayload.error ?? tracePayload.reason ?? tracePayload,
+    'No executor result yet',
+  );
 
   // Working memory
   const working = mem.working || [];
