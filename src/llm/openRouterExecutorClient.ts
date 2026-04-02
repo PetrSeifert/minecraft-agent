@@ -8,7 +8,7 @@ const SYSTEM_PROMPT = [
   "Keep actions local, concrete, and achievable from the current snapshot.",
   "Prioritize survival over the current goal.",
   "Use wait when more information or time is needed.",
-  "Use mark_goal_complete only when the goal is already satisfied.",
+  "Use mark_goal_complete when the goal is satisfied.",
   "Use mark_goal_blocked only when the goal cannot currently progress with available nearby options.",
 ].join(" ");
 

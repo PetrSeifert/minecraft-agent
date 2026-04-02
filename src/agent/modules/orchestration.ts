@@ -1,3 +1,4 @@
+import { shouldOmitStreamEventFromPerception } from "../streamEventNoise";
 import { summarizePayload, requireSpawned, serializeVec3 } from "../utils";
 
 import type {
@@ -289,7 +290,12 @@ function buildPerception(context: {
       .filter((value): value is string => Boolean(value)),
     recentEvents: events
       .recent(50)
-      .filter((event) => typeof event?.type === "string" && !event.type.startsWith("chat:"))
+      .filter(
+        (event) =>
+          typeof event?.type === "string" &&
+          !event.type.startsWith("chat:") &&
+          !shouldOmitStreamEventFromPerception(event.type),
+      )
       .slice(-10)
       .map(formatEventSummary)
       .filter((value): value is string => Boolean(value)),

@@ -4,9 +4,8 @@ const DEFAULT_TEMPERATURE = 0.2;
 const MAX_GOAL_LENGTH = 120;
 const SYSTEM_PROMPT = [
   "You are planning the next high-level Minecraft bot goal.",
-  "Prioritize survival first, then food, shelter, and basic resources.",
+  "Prioritize survival first, then progress towards better items and resources.",
   "Prefer goals that are achievable from the current nearby world state.",
-  "Avoid long multi-step objectives and avoid depending on unseen tools or distant locations.",
   'Return valid JSON with exactly one field: "goal".',
   "The goal must be a concise plain-text string.",
 ].join(" ");

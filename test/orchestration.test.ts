@@ -515,7 +515,6 @@ test("snapshot returns the full AgentState contract and throws before spawn", ()
   assert.deepEqual(snapshot.perception.recentChat, ["<Alex> Need wood", "Night is coming"]);
   assert.deepEqual(snapshot.perception.recentEvents, [
     "goal:update",
-    "pathing:goal_reached: goal_reached",
     "action:success: Crafted 4 planks",
     "action:failure: Failed to mine oak_log: out of reach",
     "entity:spawn: zombie @ 10,64,12",

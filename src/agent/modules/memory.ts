@@ -1,3 +1,4 @@
+import { shouldSkipStreamEventMemoryNormalize } from "../streamEventNoise";
 import { isHostileEntity, summarizePayload } from "../utils";
 
 import type {
@@ -771,6 +772,10 @@ export function createMemoryModule(
   }
 
   events.on("event", (event) => {
+    if (shouldSkipStreamEventMemoryNormalize(event.type)) {
+      return;
+    }
+
     for (const normalizedEvent of normalizeStreamEvent(bot, event)) {
       recordEvent(normalizedEvent);
     }
