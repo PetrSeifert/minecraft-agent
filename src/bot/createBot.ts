@@ -11,6 +11,26 @@ import { createTerminal } from "./terminal";
 
 import type { BotConfig, MinecraftBot } from "../types";
 
+function formatUnknown(value: unknown): string {
+  if (value instanceof Error) {
+    return value.message;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
+  if (value == null) {
+    return "Unknown error";
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return Object.prototype.toString.call(value);
+  }
+}
+
 function formatError(error: unknown): string {
   if (!error) {
     return "Unknown error";
@@ -23,14 +43,10 @@ function formatError(error: unknown): string {
     Array.isArray(error.errors) &&
     error.errors.length > 0
   ) {
-    return error.errors
-      .map((nestedError) =>
-        nestedError instanceof Error ? nestedError.message : String(nestedError),
-      )
-      .join(" | ");
+    return error.errors.map((nestedError) => formatUnknown(nestedError)).join(" | ");
   }
 
-  return error instanceof Error ? error.message : String(error);
+  return formatUnknown(error);
 }
 
 export async function createBot(config: BotConfig): Promise<MinecraftBot> {

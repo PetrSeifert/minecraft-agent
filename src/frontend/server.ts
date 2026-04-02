@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 
-import type { Agent, MinecraftBot, StreamEvent } from "../types";
+import type { Agent, MinecraftBot } from "../types";
 import type { FrontendState } from "./state";
 
 interface CommandRequest {

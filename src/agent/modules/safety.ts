@@ -5,7 +5,6 @@ import { instrumentAsyncOperation } from "../operationEvents";
 
 import type {
   CombatModule,
-  EntityLike,
   EventStreamLike,
   MinecraftBot,
   PathingModule,
@@ -550,7 +549,7 @@ export function createSafetyModule(
     if (snapshot.inLava || snapshot.onFire || snapshot.drowning || snapshot.mobAggro) {
       try {
         await escapeDanger("auto");
-      } catch (_error) {
+      } catch {
         // Safety reactions should fail closed without crashing the bot loop.
       }
     }

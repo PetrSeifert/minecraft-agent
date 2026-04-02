@@ -4,7 +4,6 @@ import type {
   ChatHistoryEntry,
   ExecutorStatus,
   InventorySummary,
-  MemoryState,
   MinecraftBot,
   OrchestrationSnapshot,
   PathingStatus,

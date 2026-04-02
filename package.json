@@ -11,7 +11,7 @@
     "start:example": "node --env-file=.env.example --import tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "check": "vp check",
-    "test": "node --import tsx --test test/**/*.test.ts"
+    "test": "vp test"
   },
   "dependencies": {
     "mineflayer": "^4.35.0",
@@ -22,11 +22,11 @@
     "@types/node": "^24.6.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
-    "vite-plus": "latest"
+    "vite-plus": "latest",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@0.1.15"
   },
   "overrides": {
-    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
+    "vite": "npm:@voidzero-dev/vite-plus-core@latest"
   },
   "packageManager": "npm@11.12.1"
 }
