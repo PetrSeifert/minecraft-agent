@@ -1,7 +1,7 @@
-import { goals } from 'mineflayer-pathfinder';
+import { goals } from "mineflayer-pathfinder";
 
-import { isHostileEntity, serializeEntity, serializeVec3, toVec3 } from '../utils';
-import { instrumentAsyncOperation } from '../operationEvents';
+import { isHostileEntity, serializeEntity, serializeVec3, toVec3 } from "../utils";
+import { instrumentAsyncOperation } from "../operationEvents";
 
 import type {
   CombatModule,
@@ -13,35 +13,30 @@ import type {
   SafetyStatus,
   Vec3Like,
   WorldModule,
-} from '../../types';
+} from "../../types";
 
 const { GoalBlock } = goals;
 const FIRE_BLOCK_NAMES = new Set([
-  'campfire',
-  'fire',
-  'lava',
-  'magma_block',
-  'soul_campfire',
-  'soul_fire',
+  "campfire",
+  "fire",
+  "lava",
+  "magma_block",
+  "soul_campfire",
+  "soul_fire",
 ]);
 const RANGED_HOSTILE_NAMES = new Set([
-  'blaze',
-  'bogged',
-  'breeze',
-  'drowned',
-  'ghast',
-  'guardian',
-  'pillager',
-  'skeleton',
-  'stray',
-  'witch',
+  "blaze",
+  "bogged",
+  "breeze",
+  "drowned",
+  "ghast",
+  "guardian",
+  "pillager",
+  "skeleton",
+  "stray",
+  "witch",
 ]);
-const HIGH_DANGER_HOSTILE_NAMES = new Set([
-  'creeper',
-  'piglin_brute',
-  'ravager',
-  'warden',
-]);
+const HIGH_DANGER_HOSTILE_NAMES = new Set(["creeper", "piglin_brute", "ravager", "warden"]);
 const DEFAULT_ESCAPE_ACTION_TIMEOUT_MS = 10_000;
 const SAFE_POSITION_REACHABILITY_CHECK_LIMIT = 8;
 
@@ -65,15 +60,14 @@ export function createSafetyModule(
 ): SafetyModule {
   const { events, pathing, world } = context;
   const clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout;
-  const escapeActionTimeoutMs =
-    options.escapeActionTimeoutMs ?? DEFAULT_ESCAPE_ACTION_TIMEOUT_MS;
+  const escapeActionTimeoutMs = options.escapeActionTimeoutMs ?? DEFAULT_ESCAPE_ACTION_TIMEOUT_MS;
   const setTimeoutFn = options.setTimeoutFn ?? setTimeout;
 
   let monitorEnabled = false;
   let monitorInterval: NodeJS.Timeout | null = null;
   let escapeInProgress = false;
   let lastSelfHurtAt = 0;
-  let lastEscape: ReturnType<SafetyModule['status']>['lastEscape'] = null;
+  let lastEscape: ReturnType<SafetyModule["status"]>["lastEscape"] = null;
 
   function delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeoutFn(resolve, ms));
@@ -104,7 +98,7 @@ export function createSafetyModule(
         timeoutId = setTimeoutFn(() => {
           timedOut = true;
           pathing.stop();
-          events.push('safety:escape_timeout', {
+          events.push("safety:escape_timeout", {
             timeoutMs: escapeActionTimeoutMs,
           });
           reject(new Error(`Safety escape timed out after ${escapeActionTimeoutMs}ms`));
@@ -128,7 +122,7 @@ export function createSafetyModule(
   }
 
   function isWaterBlockName(name: string | null): boolean {
-    return name === 'water';
+    return name === "water";
   }
 
   function entityFireFlag(): boolean {
@@ -172,7 +166,7 @@ export function createSafetyModule(
 
     for (const hostile of hostiles) {
       const distance = hostile.distance ?? Infinity;
-      const name = hostile.name ?? '';
+      const name = hostile.name ?? "";
       let score = 0;
 
       if (distance <= 2.5) {
@@ -239,10 +233,8 @@ export function createSafetyModule(
     const now = Date.now();
 
     const inWater =
-      (bot.entity as any)?.isInWater === true ||
-      blocks.feet === 'water' ||
-      blocks.head === 'water';
-    const inLava = blocks.feet === 'lava' || blocks.head === 'lava';
+      (bot.entity as any)?.isInWater === true || blocks.feet === "water" || blocks.head === "water";
+    const inLava = blocks.feet === "lava" || blocks.head === "lava";
     const onFire =
       entityFireFlag() ||
       isHazardousBlockName(blocks.feet) ||
@@ -273,7 +265,10 @@ export function createSafetyModule(
   }
 
   function isStandable(
-    position: { distanceTo(other: unknown): number; offset(x: number, y: number, z: number): unknown },
+    position: {
+      distanceTo(other: unknown): number;
+      offset(x: number, y: number, z: number): unknown;
+    },
     avoidPosition: Vec3Like | null = null,
     avoidRadius = 6,
   ): boolean {
@@ -285,11 +280,11 @@ export function createSafetyModule(
       return false;
     }
 
-    if (feet.boundingBox !== 'empty' || head.boundingBox !== 'empty') {
+    if (feet.boundingBox !== "empty" || head.boundingBox !== "empty") {
       return false;
     }
 
-    if (ground.boundingBox !== 'block') {
+    if (ground.boundingBox !== "block") {
       return false;
     }
 
@@ -374,14 +369,14 @@ export function createSafetyModule(
         250,
       );
 
-      return result.status === 'success';
+      return result.status === "success";
     } catch {
       return true;
     }
   }
 
   function findWaterEscapeTarget(maxDistance = 12) {
-    const waterBlocks = world.findBlocksByName('water', {
+    const waterBlocks = world.findBlocksByName("water", {
       count: 12,
       maxDistance,
     });
@@ -406,22 +401,22 @@ export function createSafetyModule(
   }
 
   async function escapeDrowning() {
-    bot.setControlState('jump', true);
+    bot.setControlState("jump", true);
     await delay(400);
-    bot.setControlState('jump', false);
+    bot.setControlState("jump", false);
 
     const safePosition = findNearestSafePosition(10);
 
     if (!safePosition) {
       return {
-        action: 'jump_only',
+        action: "jump_only",
       };
     }
 
     await awaitEscapeMovement(pathing.goto(safePosition, 0));
 
     return {
-      action: 'surface_escape',
+      action: "surface_escape",
       target: serializeVec3(safePosition),
     };
   }
@@ -430,12 +425,14 @@ export function createSafetyModule(
     const waterTarget = findWaterEscapeTarget(12);
 
     if (waterTarget) {
-      await awaitEscapeMovement(pathing.goto(waterTarget, 0, {
-        ignorePause: true,
-      }));
+      await awaitEscapeMovement(
+        pathing.goto(waterTarget, 0, {
+          ignorePause: true,
+        }),
+      );
 
       return {
-        action: 'water_escape',
+        action: "water_escape",
         target: waterTarget,
       };
     }
@@ -444,14 +441,14 @@ export function createSafetyModule(
 
     if (!safePosition) {
       return {
-        action: 'stop_drop_only',
+        action: "stop_drop_only",
       };
     }
 
     await awaitEscapeMovement(pathing.goto(safePosition, 0));
 
     return {
-      action: 'fire_escape',
+      action: "fire_escape",
       target: serializeVec3(safePosition),
     };
   }
@@ -461,7 +458,7 @@ export function createSafetyModule(
 
     if (!threat?.position) {
       return {
-        action: 'no_threat_found',
+        action: "no_threat_found",
       };
     }
 
@@ -470,28 +467,32 @@ export function createSafetyModule(
     });
 
     if (safePosition) {
-      await awaitEscapeMovement(pathing.goto(safePosition, 0, {
-        ignorePause: true,
-      }));
+      await awaitEscapeMovement(
+        pathing.goto(safePosition, 0, {
+          ignorePause: true,
+        }),
+      );
 
       return {
-        action: 'retreat_to_safe_position',
+        action: "retreat_to_safe_position",
         target: serializeVec3(safePosition),
         threat: serializeEntity(threat),
       };
     }
 
-    await awaitEscapeMovement(pathing.moveAwayFrom(threat.position, 14, {
-      ignorePause: true,
-    }));
+    await awaitEscapeMovement(
+      pathing.moveAwayFrom(threat.position, 14, {
+        ignorePause: true,
+      }),
+    );
 
     return {
-      action: 'retreat_away_from_threat',
+      action: "retreat_away_from_threat",
       threat: serializeEntity(threat),
     };
   }
 
-  async function escapeDangerOperation(reason = 'manual') {
+  async function escapeDangerOperation(reason = "manual") {
     if (escapeInProgress) {
       return {
         busy: true,
@@ -517,12 +518,12 @@ export function createSafetyModule(
         if (safePosition) {
           await awaitEscapeMovement(pathing.goto(safePosition, 0));
           result = {
-            action: 'move_to_safe_position',
+            action: "move_to_safe_position",
             target: serializeVec3(safePosition),
           };
         } else {
           result = {
-            action: 'no_escape_needed',
+            action: "no_escape_needed",
           };
         }
       }
@@ -546,14 +547,9 @@ export function createSafetyModule(
 
     const snapshot = assess();
 
-    if (
-      snapshot.inLava ||
-      snapshot.onFire ||
-      snapshot.drowning ||
-      snapshot.mobAggro
-    ) {
+    if (snapshot.inLava || snapshot.onFire || snapshot.drowning || snapshot.mobAggro) {
       try {
-        await escapeDanger('auto');
+        await escapeDanger("auto");
       } catch (_error) {
         // Safety reactions should fail closed without crashing the bot loop.
       }
@@ -607,80 +603,84 @@ export function createSafetyModule(
     };
   }
 
-  const escapeDanger = instrumentAsyncOperation(events, {
-    action: 'safety.escapeDanger',
-    failure: ([reason = 'manual'], error) => ({
-      priority: 9,
-      tags: ['safety', 'escape'],
-      text: `Failed safety escape (${reason}): ${error instanceof Error ? error.message : String(error)}`,
-    }),
-    start: ([reason = 'manual']) => ({
-      priority: 6,
-      tags: ['safety', 'escape'],
-      text: `Running safety escape (${reason})`,
-    }),
-    success: (_args, result) => ({
-      priority: 8,
-      tags: ['safety', 'escape'],
-      text: `Safety escape result: ${result.action ?? 'completed'}`,
-    }),
-  }, escapeDangerOperation);
+  const escapeDanger = instrumentAsyncOperation(
+    events,
+    {
+      action: "safety.escapeDanger",
+      failure: ([reason = "manual"], error) => ({
+        priority: 9,
+        tags: ["safety", "escape"],
+        text: `Failed safety escape (${reason}): ${error instanceof Error ? error.message : String(error)}`,
+      }),
+      start: ([reason = "manual"]) => ({
+        priority: 6,
+        tags: ["safety", "escape"],
+        text: `Running safety escape (${reason})`,
+      }),
+      success: (_args, result) => ({
+        priority: 8,
+        tags: ["safety", "escape"],
+        text: `Safety escape result: ${result.action ?? "completed"}`,
+      }),
+    },
+    escapeDangerOperation,
+  );
 
-  const retreatFromNearestHostile = instrumentAsyncOperation(events, {
-    action: 'safety.retreatFromNearestHostile',
-    failure: ([minDistance = 12], error) => ({
-      priority: 9,
-      tags: ['safety', 'retreat'],
-      text: `Failed hostile retreat at distance ${minDistance}: ${error instanceof Error ? error.message : String(error)}`,
-    }),
-    start: ([minDistance = 12]) => ({
-      priority: 6,
-      tags: ['safety', 'retreat'],
-      text: `Retreating from nearest hostile to distance ${minDistance}`,
-    }),
-    success: (_args, result) => ({
-      priority: 8,
-      tags: ['safety', 'retreat'],
-      text: `Retreated from ${result.hostile?.name ?? result.hostile?.username ?? 'hostile'} to distance ${result.minDistance}`,
-    }),
-  }, retreatFromNearestHostileOperation);
+  const retreatFromNearestHostile = instrumentAsyncOperation(
+    events,
+    {
+      action: "safety.retreatFromNearestHostile",
+      failure: ([minDistance = 12], error) => ({
+        priority: 9,
+        tags: ["safety", "retreat"],
+        text: `Failed hostile retreat at distance ${minDistance}: ${error instanceof Error ? error.message : String(error)}`,
+      }),
+      start: ([minDistance = 12]) => ({
+        priority: 6,
+        tags: ["safety", "retreat"],
+        text: `Retreating from nearest hostile to distance ${minDistance}`,
+      }),
+      success: (_args, result) => ({
+        priority: 8,
+        tags: ["safety", "retreat"],
+        text: `Retreated from ${result.hostile?.name ?? result.hostile?.username ?? "hostile"} to distance ${result.minDistance}`,
+      }),
+    },
+    retreatFromNearestHostileOperation,
+  );
 
-  bot.on('entityHurt', (entity) => {
+  bot.on("entityHurt", (entity) => {
     if (entity?.id === bot.entity?.id) {
       lastSelfHurtAt = Date.now();
 
       if (monitorEnabled && !escapeInProgress) {
-        void escapeDanger('self_hurt').catch(() => {});
+        void escapeDanger("self_hurt").catch(() => {});
       }
     }
   });
 
-  bot.on('death', () => {
+  bot.on("death", () => {
     lastEscape = {
-      action: 'death',
+      action: "death",
       timestamp: new Date().toISOString(),
     };
   });
 
-  bot.on('end', () => {
+  bot.on("end", () => {
     disable();
   });
 
-    return {
-      disable,
-      enable,
-      escapeDanger,
-      retreatFromNearestHostile,
-      status,
-    };
+  return {
+    disable,
+    enable,
+    escapeDanger,
+    retreatFromNearestHostile,
+    status,
+  };
 }
 
 export const safetyInternals = {
-  canReachPosition: (
-    bot: MinecraftBot,
-    pathing: PathingModule,
-    position: Vec3Like,
-  ) => {
+  canReachPosition: (bot: MinecraftBot, pathing: PathingModule, position: Vec3Like) => {
     if (!bot.entity?.position || !bot.pathfinder?.getPathTo) {
       return true;
     }
@@ -693,7 +693,7 @@ export const safetyInternals = {
         250,
       );
 
-      return result.status === 'success';
+      return result.status === "success";
     } catch {
       return true;
     }

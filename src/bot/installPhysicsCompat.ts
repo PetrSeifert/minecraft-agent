@@ -1,7 +1,7 @@
-import { PlayerState } from 'prismarine-physics';
-import { Vec3 } from 'vec3';
+import { PlayerState } from "prismarine-physics";
+import { Vec3 } from "vec3";
 
-import type { MinecraftBot, PhysicsStateLike } from '../types';
+import type { MinecraftBot, PhysicsStateLike } from "../types";
 
 function isFiniteNumber(value: unknown): value is number {
   return Number.isFinite(value);
@@ -12,11 +12,7 @@ function isFiniteVec3(vec: Vec3 | null | undefined): vec is Vec3 {
     return false;
   }
 
-  return (
-    isFiniteNumber(vec.x) &&
-    isFiniteNumber(vec.y) &&
-    isFiniteNumber(vec.z)
-  );
+  return isFiniteNumber(vec.x) && isFiniteNumber(vec.y) && isFiniteNumber(vec.z);
 }
 
 function cloneVec3(vec: Vec3 | null | undefined, fallback = new Vec3(0, 0, 0)): Vec3 {
@@ -36,15 +32,15 @@ function sanitizeControl(control: Record<string, boolean> = {}) {
   };
 }
 
-function sanitizeAttributes(attributes: PhysicsStateLike['attributes']) {
-  if (!attributes || typeof attributes !== 'object') {
+function sanitizeAttributes(attributes: PhysicsStateLike["attributes"]) {
+  if (!attributes || typeof attributes !== "object") {
     return {};
   }
 
   const safe: Record<string, { modifiers: unknown[]; value: number }> = {};
 
   for (const [key, value] of Object.entries(attributes)) {
-    if (!value || typeof value !== 'object') {
+    if (!value || typeof value !== "object") {
       continue;
     }
 
@@ -62,10 +58,7 @@ function sanitizeAttributes(attributes: PhysicsStateLike['attributes']) {
 }
 
 function sanitizeState(bot: MinecraftBot, source?: PhysicsStateLike): PhysicsStateLike {
-  const safe = new PlayerState(
-    bot,
-    sanitizeControl(source?.control),
-  ) as PhysicsStateLike;
+  const safe = new PlayerState(bot, sanitizeControl(source?.control)) as PhysicsStateLike;
 
   safe.pos = cloneVec3(source?.pos, bot.entity?.position);
   safe.vel = cloneVec3(source?.vel, bot.entity?.velocity);
@@ -87,9 +80,7 @@ function sanitizeState(bot: MinecraftBot, source?: PhysicsStateLike): PhysicsSta
   safe.jumpBoost = isFiniteNumber(source?.jumpBoost) ? source.jumpBoost : 0;
   safe.speed = isFiniteNumber(source?.speed) ? source.speed : 0;
   safe.slowness = isFiniteNumber(source?.slowness) ? source.slowness : 0;
-  safe.dolphinsGrace = isFiniteNumber(source?.dolphinsGrace)
-    ? source.dolphinsGrace
-    : 0;
+  safe.dolphinsGrace = isFiniteNumber(source?.dolphinsGrace) ? source.dolphinsGrace : 0;
   safe.slowFalling = isFiniteNumber(source?.slowFalling) ? source.slowFalling : 0;
   safe.levitation = isFiniteNumber(source?.levitation) ? source.levitation : 0;
   safe.depthStrider = isFiniteNumber(source?.depthStrider) ? source.depthStrider : 0;
@@ -128,8 +119,8 @@ export function installPhysicsCompat(bot: MinecraftBot): boolean {
     const recovered = originalSimulatePlayer(sanitizeState(bot, baseline), world);
 
     if (hasFinitePhysicsState(recovered)) {
-      physicsEmitter.emit('physicsAnomaly', {
-        kind: 'recovered_invalid_state',
+      physicsEmitter.emit("physicsAnomaly", {
+        kind: "recovered_invalid_state",
         position: {
           x: recovered.pos!.x,
           y: recovered.pos!.y,
@@ -144,8 +135,8 @@ export function installPhysicsCompat(bot: MinecraftBot): boolean {
       return recovered;
     }
 
-    physicsEmitter.emit('physicsAnomaly', {
-      kind: 'fallback_preserved_state',
+    physicsEmitter.emit("physicsAnomaly", {
+      kind: "fallback_preserved_state",
       position: {
         x: baseline.pos!.x,
         y: baseline.pos!.y,

@@ -1,4 +1,4 @@
-import type { EventStreamLike } from '../types';
+import type { EventStreamLike } from "../types";
 
 interface OperationEventDetails {
   priority?: number;
@@ -19,7 +19,7 @@ function serializeError(error: unknown): string {
 
 function pushOperationEvent(
   events: EventStreamLike,
-  type: 'action:start' | 'action:success' | 'action:failure',
+  type: "action:start" | "action:success" | "action:failure",
   action: string,
   details: OperationEventDetails,
   extraPayload: Record<string, unknown> = {},
@@ -39,14 +39,14 @@ export function instrumentAsyncOperation<TArgs extends unknown[], TResult>(
   operation: (...args: TArgs) => Promise<TResult>,
 ): (...args: TArgs) => Promise<TResult> {
   return async (...args: TArgs): Promise<TResult> => {
-    pushOperationEvent(events, 'action:start', descriptor.action, descriptor.start(args));
+    pushOperationEvent(events, "action:start", descriptor.action, descriptor.start(args));
 
     try {
       const result = await operation(...args);
 
       pushOperationEvent(
         events,
-        'action:success',
+        "action:success",
         descriptor.action,
         descriptor.success(args, result),
       );
@@ -55,7 +55,7 @@ export function instrumentAsyncOperation<TArgs extends unknown[], TResult>(
     } catch (error: unknown) {
       pushOperationEvent(
         events,
-        'action:failure',
+        "action:failure",
         descriptor.action,
         descriptor.failure(args, error),
         {

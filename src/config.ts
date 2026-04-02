@@ -1,12 +1,12 @@
-import type { BotConfig } from './types';
+import type { BotConfig } from "./types";
 
 const DEFAULT_DASHBOARD_PORT = 3400;
 const DEFAULT_GOAL_EXECUTOR_INTERVAL_MS = 5_000;
-const DEFAULT_HOST = 'localhost';
+const DEFAULT_HOST = "localhost";
 const DEFAULT_GOAL_PLANNER_INTERVAL_MS = 60_000;
-const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_PORT = 25565;
-const DEFAULT_USERNAME = 'MineflayerBot';
+const DEFAULT_USERNAME = "MineflayerBot";
 
 function parsePort(rawPort: string | undefined): number {
   const port = Number(rawPort ?? DEFAULT_PORT);
@@ -18,10 +18,10 @@ function parsePort(rawPort: string | undefined): number {
   return port;
 }
 
-function parseAuth(rawAuth: string | undefined, hasPassword: boolean): BotConfig['auth'] {
-  const auth = rawAuth?.trim() || (hasPassword ? 'microsoft' : 'offline');
+function parseAuth(rawAuth: string | undefined, hasPassword: boolean): BotConfig["auth"] {
+  const auth = rawAuth?.trim() || (hasPassword ? "microsoft" : "offline");
 
-  if (auth === 'microsoft' || auth === 'mojang' || auth === 'offline') {
+  if (auth === "microsoft" || auth === "mojang" || auth === "offline") {
     return auth;
   }
 
@@ -43,7 +43,7 @@ function parsePositiveInteger(
 }
 
 function parseOptionalEnv(env: NodeJS.ProcessEnv, key: string): string {
-  return env[key]?.trim() || '';
+  return env[key]?.trim() || "";
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
@@ -52,29 +52,27 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
   const password = env.MC_PASSWORD?.trim() || undefined;
   const auth = parseAuth(env.MC_AUTH, Boolean(password));
   const version = env.MC_VERSION?.trim() || false;
-  const openRouterApiKey = parseOptionalEnv(env, 'OPENROUTER_API_KEY');
-  const openRouterModel = parseOptionalEnv(env, 'OPENROUTER_MODEL');
-  const openRouterBaseUrl =
-    env.OPENROUTER_BASE_URL?.trim() || DEFAULT_OPENROUTER_BASE_URL;
+  const openRouterApiKey = parseOptionalEnv(env, "OPENROUTER_API_KEY");
+  const openRouterModel = parseOptionalEnv(env, "OPENROUTER_MODEL");
+  const openRouterBaseUrl = env.OPENROUTER_BASE_URL?.trim() || DEFAULT_OPENROUTER_BASE_URL;
   const goalPlannerIntervalMs = parsePositiveInteger(
     env.GOAL_PLANNER_INTERVAL_MS,
     DEFAULT_GOAL_PLANNER_INTERVAL_MS,
-    'GOAL_PLANNER_INTERVAL_MS',
+    "GOAL_PLANNER_INTERVAL_MS",
   );
   const goalExecutorIntervalMs = parsePositiveInteger(
     env.GOAL_EXECUTOR_INTERVAL_MS,
     DEFAULT_GOAL_EXECUTOR_INTERVAL_MS,
-    'GOAL_EXECUTOR_INTERVAL_MS',
+    "GOAL_EXECUTOR_INTERVAL_MS",
   );
   const debugKnockback =
-    env.MC_DEBUG_KNOCKBACK?.trim() === '1' ||
-    env.MC_DEBUG_KNOCKBACK?.trim()?.toLowerCase() === 'true';
-  const debugKnockbackFile =
-    env.MC_DEBUG_KNOCKBACK_FILE?.trim() || 'knockback-debug.log';
+    env.MC_DEBUG_KNOCKBACK?.trim() === "1" ||
+    env.MC_DEBUG_KNOCKBACK?.trim()?.toLowerCase() === "true";
+  const debugKnockbackFile = env.MC_DEBUG_KNOCKBACK_FILE?.trim() || "knockback-debug.log";
   const dashboardPort = parsePositiveInteger(
     env.DASHBOARD_PORT,
     DEFAULT_DASHBOARD_PORT,
-    'DASHBOARD_PORT',
+    "DASHBOARD_PORT",
   );
 
   return {

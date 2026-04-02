@@ -1,16 +1,11 @@
-import assert from 'node:assert/strict';
-import { EventEmitter } from 'node:events';
-import test from 'node:test';
+import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
+import test from "node:test";
 
-import { EventStream } from '../src/agent/eventStream';
-import { createExecutorModule } from '../src/agent/modules/executor';
+import { EventStream } from "../src/agent/eventStream";
+import { createExecutorModule } from "../src/agent/modules/executor";
 
-import type {
-  ExecutorDecision,
-  JsonValue,
-  OrchestrationSnapshot,
-  StreamEvent,
-} from '../src/types';
+import type { ExecutorDecision, JsonValue, OrchestrationSnapshot, StreamEvent } from "../src/types";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -31,7 +26,7 @@ function createSnapshot(currentGoal: string | null): OrchestrationSnapshot {
     perception: {
       containers: [],
       hostiles: [],
-      nearbyBlocks: ['oak_log'],
+      nearbyBlocks: ["oak_log"],
       nearbyEntities: [],
       recentChat: [],
       recentEvents: [],
@@ -43,7 +38,7 @@ function createSnapshot(currentGoal: string | null): OrchestrationSnapshot {
         },
         hazards: [],
         heading: {
-          cardinal: 'south',
+          cardinal: "south",
           pitch: 0,
           yaw: 0,
         },
@@ -61,40 +56,42 @@ function createSnapshot(currentGoal: string | null): OrchestrationSnapshot {
       recentFailures: [],
     },
     self: {
-      biome: 'plains',
+      biome: "plains",
       equipped: [],
       health: 20,
       hunger: 10,
       inventory: {},
       position: { x: 0, y: 64, z: 0 },
-      risk: 'low',
-      timeOfDay: 'day',
+      risk: "low",
+      timeOfDay: "day",
     },
   };
 }
 
-function executorEvents(events: EventStream, type: StreamEvent['type']): StreamEvent[] {
+function executorEvents(events: EventStream, type: StreamEvent["type"]): StreamEvent[] {
   return events.recent(200).filter((event) => event.type === type);
 }
 
-function createExecutorHarness(options: {
-  currentGoal?: string | null;
-  eventDebounceMs?: number;
-  initialSpawnDelayMs?: number;
-  intervalMs?: number;
-  invoke?: (decision: ExecutorDecision) => Promise<{
-    nextDelayMs?: number;
-    outcome: 'action' | 'goal_blocked' | 'goal_complete' | 'observe' | 'wait';
-    result: JsonValue;
-  }>;
-  chooseTool?: () => Promise<ExecutorDecision>;
-  snapshotError?: () => Error | null;
-  spawned?: boolean;
-  startEnabled?: boolean;
-  safetyEscapeInProgress?: boolean;
-} = {}) {
+function createExecutorHarness(
+  options: {
+    currentGoal?: string | null;
+    eventDebounceMs?: number;
+    initialSpawnDelayMs?: number;
+    intervalMs?: number;
+    invoke?: (decision: ExecutorDecision) => Promise<{
+      nextDelayMs?: number;
+      outcome: "action" | "goal_blocked" | "goal_complete" | "observe" | "wait";
+      result: JsonValue;
+    }>;
+    chooseTool?: () => Promise<ExecutorDecision>;
+    snapshotError?: () => Error | null;
+    spawned?: boolean;
+    startEnabled?: boolean;
+    safetyEscapeInProgress?: boolean;
+  } = {},
+) {
   const events = new EventStream();
-  let currentGoal: string | null = options.currentGoal ?? 'find some food to eat';
+  let currentGoal: string | null = options.currentGoal ?? "find some food to eat";
   let spawned = options.spawned ?? true;
   const bot = Object.assign(new EventEmitter(), {
     entity: {
@@ -102,7 +99,7 @@ function createExecutorHarness(options: {
     },
   });
 
-  bot.on('spawn', () => {
+  bot.on("spawn", () => {
     spawned = true;
     bot.entity.position = { x: 0, y: 64, z: 0 };
   });
@@ -113,7 +110,7 @@ function createExecutorHarness(options: {
     },
     setGoal(text: string | null) {
       currentGoal = text?.trim() || null;
-      events.push('goal:update', {
+      events.push("goal:update", {
         goal: currentGoal,
       });
 
@@ -132,7 +129,7 @@ function createExecutorHarness(options: {
       }
 
       if (!spawned) {
-        throw new Error('Bot has not spawned yet');
+        throw new Error("Bot has not spawned yet");
       }
 
       return createSnapshot(currentGoal);
@@ -141,62 +138,68 @@ function createExecutorHarness(options: {
 
   let chooseToolCalls = 0;
   let invokeCalls = 0;
-  const executor = createExecutorModule(bot as never, {
-    client: {
-      chooseTool: async () => {
-        chooseToolCalls += 1;
-        return options.chooseTool
-          ? options.chooseTool()
-          : {
-              args: {},
-              tool: 'inspect_visible_area',
-            };
+  const executor = createExecutorModule(
+    bot as never,
+    {
+      client: {
+        chooseTool: async () => {
+          chooseToolCalls += 1;
+          return options.chooseTool
+            ? options.chooseTool()
+            : {
+                args: {},
+                tool: "inspect_visible_area",
+              };
+        },
+        model: "openrouter/test-model",
+        provider: "openrouter",
       },
-      model: 'openrouter/test-model',
-      provider: 'openrouter',
-    },
-    events: events as never,
-    goalExecutorIntervalMs: options.intervalMs ?? 1_000_000,
-    memory: memory as never,
-    orchestration: orchestration as never,
-    safety: {
-      status() {
-        return {
-          escapeInProgress: options.safetyEscapeInProgress ?? false,
-        };
-      },
-    } as never,
-    tools: {
-      definitions() {
-        return [{
-          description: 'Inspect visible area.',
-          name: 'inspect_visible_area',
-          parameters: {
-            type: 'object',
-            properties: {},
-          },
-        }];
-      },
-      async invoke(decision: ExecutorDecision) {
-        invokeCalls += 1;
+      events: events as never,
+      goalExecutorIntervalMs: options.intervalMs ?? 1_000_000,
+      memory: memory as never,
+      orchestration: orchestration as never,
+      safety: {
+        status() {
+          return {
+            escapeInProgress: options.safetyEscapeInProgress ?? false,
+          };
+        },
+      } as never,
+      tools: {
+        definitions() {
+          return [
+            {
+              description: "Inspect visible area.",
+              name: "inspect_visible_area",
+              parameters: {
+                type: "object",
+                properties: {},
+              },
+            },
+          ];
+        },
+        async invoke(decision: ExecutorDecision) {
+          invokeCalls += 1;
 
-        if (options.invoke) {
-          return options.invoke(decision);
-        }
+          if (options.invoke) {
+            return options.invoke(decision);
+          }
 
-        return {
-          outcome: 'observe' as const,
-          result: {
-            ok: true,
-          },
-        };
+          return {
+            outcome: "observe" as const,
+            result: {
+              ok: true,
+            },
+          };
+        },
       },
     },
-  }, {
-    eventDebounceMs: options.eventDebounceMs ?? 5,
-    initialSpawnDelayMs: options.initialSpawnDelayMs ?? 0,
-    startEnabled: options.startEnabled ?? true,
-  });
+    {
+      eventDebounceMs: options.eventDebounceMs ?? 5,
+      initialSpawnDelayMs: options.initialSpawnDelayMs ?? 0,
+      startEnabled: options.startEnabled ?? true,
+    },
+  );
 
   return {
     bot,
@@ -215,7 +218,7 @@ function createExecutorHarness(options: {
   };
 }
 
-test('executor triggers on spawn, manual step, goal update, and interval', async () => {
+test("executor triggers on spawn, manual step, goal update, and interval", async () => {
   const harness = createExecutorHarness({
     eventDebounceMs: 5,
     initialSpawnDelayMs: 0,
@@ -224,71 +227,73 @@ test('executor triggers on spawn, manual step, goal update, and interval', async
     startEnabled: true,
   });
 
-  harness.bot.emit('spawn');
+  harness.bot.emit("spawn");
   await sleep(15);
 
-  await harness.executor.stepNow('manual_test');
+  await harness.executor.stepNow("manual_test");
 
-  harness.memory.setGoal('find nearby wood');
+  harness.memory.setGoal("find nearby wood");
   await sleep(15);
   await sleep(35);
 
-  const triggers = executorEvents(harness.events, 'executor:request').map((event) =>
-    (event.payload as { trigger?: string })?.trigger,
+  const triggers = executorEvents(harness.events, "executor:request").map(
+    (event) => (event.payload as { trigger?: string })?.trigger,
   );
 
-  assert.ok(triggers.includes('spawn'));
-  assert.ok(triggers.includes('manual_test'));
-  assert.ok(triggers.includes('goal_update'));
-  assert.ok(triggers.includes('interval'));
+  assert.ok(triggers.includes("spawn"));
+  assert.ok(triggers.includes("manual_test"));
+  assert.ok(triggers.includes("goal_update"));
+  assert.ok(triggers.includes("interval"));
 
   harness.executor.disable();
-  harness.bot.emit('end');
+  harness.bot.emit("end");
 });
 
-test('executor performs exactly one tool decision and invocation per cycle', async () => {
+test("executor performs exactly one tool decision and invocation per cycle", async () => {
   const harness = createExecutorHarness();
 
-  const status = await harness.executor.stepNow('single_cycle');
+  const status = await harness.executor.stepNow("single_cycle");
 
-  assert.equal(status.lastDecision?.tool, 'inspect_visible_area');
+  assert.equal(status.lastDecision?.tool, "inspect_visible_area");
   assert.equal(harness.chooseToolCalls(), 1);
   assert.equal(harness.invokeCalls(), 1);
 
   harness.executor.disable();
-  harness.bot.emit('end');
+  harness.bot.emit("end");
 });
 
-test('executor skips when safety is escaping and when bot has not spawned', async () => {
+test("executor skips when safety is escaping and when bot has not spawned", async () => {
   const safetyHarness = createExecutorHarness({
     safetyEscapeInProgress: true,
   });
 
-  const safetyStatus = await safetyHarness.executor.stepNow('safety_skip');
+  const safetyStatus = await safetyHarness.executor.stepNow("safety_skip");
   assert.equal(safetyStatus.lastError, null);
   assert.equal(
-    (executorEvents(safetyHarness.events, 'executor:skip')[0]?.payload as { reason?: string })?.reason,
-    'safety_escape',
+    (executorEvents(safetyHarness.events, "executor:skip")[0]?.payload as { reason?: string })
+      ?.reason,
+    "safety_escape",
   );
 
   const spawnHarness = createExecutorHarness({
     spawned: false,
   });
 
-  const spawnStatus = await spawnHarness.executor.stepNow('spawn_skip');
+  const spawnStatus = await spawnHarness.executor.stepNow("spawn_skip");
   assert.equal(spawnStatus.lastError, null);
   assert.equal(
-    (executorEvents(spawnHarness.events, 'executor:skip')[0]?.payload as { reason?: string })?.reason,
-    'not_spawned',
+    (executorEvents(spawnHarness.events, "executor:skip")[0]?.payload as { reason?: string })
+      ?.reason,
+    "not_spawned",
   );
 
   safetyHarness.executor.disable();
-  safetyHarness.bot.emit('end');
+  safetyHarness.bot.emit("end");
   spawnHarness.executor.disable();
-  spawnHarness.bot.emit('end');
+  spawnHarness.bot.emit("end");
 });
 
-test('executor handles goal completion, goal blocked, and wait outcomes', async () => {
+test("executor handles goal completion, goal blocked, and wait outcomes", async () => {
   let invocationIndex = 0;
   const harness = createExecutorHarness({
     intervalMs: 25,
@@ -297,61 +302,61 @@ test('executor handles goal completion, goal blocked, and wait outcomes', async 
 
       if (invocationIndex === 1) {
         return {
-          outcome: 'goal_complete' as const,
+          outcome: "goal_complete" as const,
           result: { done: true } as JsonValue,
         };
       }
 
       if (invocationIndex === 2) {
         return {
-          outcome: 'goal_blocked' as const,
+          outcome: "goal_blocked" as const,
           result: { blocked: true } as JsonValue,
         };
       }
 
       return {
         nextDelayMs: 500,
-        outcome: 'wait' as const,
+        outcome: "wait" as const,
         result: { waiting: true } as JsonValue,
       };
     },
   });
 
-  harness.memory.setGoal('eat food');
-  await harness.executor.stepNow('goal_complete');
+  harness.memory.setGoal("eat food");
+  await harness.executor.stepNow("goal_complete");
   harness.memory.setGoal(null);
   assert.equal(harness.executor.status().currentGoal, null);
 
-  harness.memory.setGoal('mine stone');
-  await harness.executor.stepNow('goal_blocked');
+  harness.memory.setGoal("mine stone");
+  await harness.executor.stepNow("goal_blocked");
   harness.memory.setGoal(null);
   assert.equal(harness.executor.status().currentGoal, null);
 
-  harness.memory.setGoal('observe');
-  await harness.executor.stepNow('wait_result');
+  harness.memory.setGoal("observe");
+  await harness.executor.stepNow("wait_result");
   await sleep(40);
 
-  const skipReasons = executorEvents(harness.events, 'executor:skip').map((event) =>
-    (event.payload as { reason?: string })?.reason,
+  const skipReasons = executorEvents(harness.events, "executor:skip").map(
+    (event) => (event.payload as { reason?: string })?.reason,
   );
-  assert.ok(skipReasons.includes('cooldown'));
+  assert.ok(skipReasons.includes("cooldown"));
 
   harness.executor.disable();
-  harness.bot.emit('end');
+  harness.bot.emit("end");
 });
 
-test('executor records failures and failure events', async () => {
+test("executor records failures and failure events", async () => {
   const harness = createExecutorHarness({
     chooseTool: async () => {
-      throw new Error('tool selection failed');
+      throw new Error("tool selection failed");
     },
   });
 
-  const status = await harness.executor.stepNow('failure_case');
+  const status = await harness.executor.stepNow("failure_case");
 
-  assert.equal(status.lastError, 'tool selection failed');
-  assert.equal(executorEvents(harness.events, 'executor:failure').length, 1);
+  assert.equal(status.lastError, "tool selection failed");
+  assert.equal(executorEvents(harness.events, "executor:failure").length, 1);
 
   harness.executor.disable();
-  harness.bot.emit('end');
+  harness.bot.emit("end");
 });

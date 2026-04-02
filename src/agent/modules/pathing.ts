@@ -1,7 +1,7 @@
-import { Movements, goals, pathfinder } from 'mineflayer-pathfinder';
+import { Movements, goals, pathfinder } from "mineflayer-pathfinder";
 
-import { instrumentAsyncOperation } from '../operationEvents';
-import { requireSpawned, serializeEntity, serializeVec3, toVec3 } from '../utils';
+import { instrumentAsyncOperation } from "../operationEvents";
+import { requireSpawned, serializeEntity, serializeVec3, toVec3 } from "../utils";
 
 import type {
   EntityLike,
@@ -10,7 +10,7 @@ import type {
   PathingModule,
   PathingOptions,
   Vec3Like,
-} from '../../types';
+} from "../../types";
 
 const {
   GoalBlock,
@@ -42,10 +42,7 @@ function formatPosition(position: Vec3Like): string {
   return `${target.x},${target.y},${target.z}`;
 }
 
-export function createPathingModule(
-  bot: MinecraftBot,
-  events: EventStreamLike,
-): PathingModule {
+export function createPathingModule(bot: MinecraftBot, events: EventStreamLike): PathingModule {
   let movements: Movements | null = null;
   const pendingMovementOptions: Record<string, unknown> = {
     ...DEFAULT_MOVEMENT_OPTIONS,
@@ -81,7 +78,7 @@ export function createPathingModule(
   function hasSolidGroundBelow(): boolean {
     return supportSamplePositions().some((position) => {
       const block = bot.blockAt(position);
-      return block?.boundingBox === 'block';
+      return block?.boundingBox === "block";
     });
   }
 
@@ -93,7 +90,7 @@ export function createPathingModule(
     return supportSamplePositions().some((sample) => sample.equals(position as never));
   }
 
-  function forceUnsupportedGroundFall(reason = 'unsupported_ground'): boolean {
+  function forceUnsupportedGroundFall(reason = "unsupported_ground"): boolean {
     if (!bot.entity?.velocity) {
       return false;
     }
@@ -105,16 +102,13 @@ export function createPathingModule(
       changed = true;
     }
 
-    if (
-      !Number.isFinite(bot.entity.velocity.y) ||
-      bot.entity.velocity.y > FALL_START_VELOCITY
-    ) {
+    if (!Number.isFinite(bot.entity.velocity.y) || bot.entity.velocity.y > FALL_START_VELOCITY) {
       bot.entity.velocity.y = FALL_START_VELOCITY;
       changed = true;
     }
 
     if (changed) {
-      events.push('physics:forced_fall', { reason });
+      events.push("physics:forced_fall", { reason });
     }
 
     return changed;
@@ -140,7 +134,7 @@ export function createPathingModule(
     return motionMagnitude() > 0.02;
   }
 
-  function resetMotionState(reason = 'reset_motion'): void {
+  function resetMotionState(reason = "reset_motion"): void {
     bot.clearControlStates();
     bot.jumpQueued = false;
 
@@ -148,7 +142,7 @@ export function createPathingModule(
       bot.entity.velocity.set(0, 0, 0);
     }
 
-    events.push('physics:motion_reset', { reason });
+    events.push("physics:motion_reset", { reason });
   }
 
   function setPhysicsEnabled(enabled: boolean, reason: string): void {
@@ -159,13 +153,13 @@ export function createPathingModule(
     if (enabled) {
       resetMotionState(`${reason}:before_enable`);
       bot.physicsEnabled = true;
-      events.push('physics:enabled', { reason });
+      events.push("physics:enabled", { reason });
       return;
     }
 
     bot.clearControlStates();
     bot.physicsEnabled = false;
-    events.push('physics:disabled', { reason });
+    events.push("physics:disabled", { reason });
   }
 
   function holdPhysics(reason: string, durationMs = DEFAULT_PHYSICS_HOLD_MS) {
@@ -178,13 +172,13 @@ export function createPathingModule(
     };
   }
 
-  function clearFollowState(reason = 'follow_cleared'): void {
+  function clearFollowState(reason = "follow_cleared"): void {
     if (!followState) {
       return;
     }
 
     followState = null;
-    events.push('pathing:follow_stopped', { reason });
+    events.push("pathing:follow_stopped", { reason });
   }
 
   function ensurePathfinderLoaded(): void {
@@ -194,14 +188,14 @@ export function createPathingModule(
 
     bot.loadPlugin(pathfinder);
     pathfinderLoaded = true;
-    events.push('pathing:plugin_loaded', null);
+    events.push("pathing:plugin_loaded", null);
   }
 
   function getPathfinder() {
     ensurePathfinderLoaded();
 
     if (!bot.pathfinder) {
-      throw new Error('Pathfinder plugin is not ready yet');
+      throw new Error("Pathfinder plugin is not ready yet");
     }
 
     return bot.pathfinder;
@@ -224,12 +218,9 @@ export function createPathingModule(
     return movements;
   }
 
-  function syncPhysicsState(reason = 'monitor'): void {
+  function syncPhysicsState(reason = "monitor"): void {
     const hasActivePathGoal = Boolean(bot.pathfinder?.goal);
-    const shouldHold =
-      Date.now() < physicsHoldUntil ||
-      hasActivePathGoal ||
-      isPhysicallyUnstable();
+    const shouldHold = Date.now() < physicsHoldUntil || hasActivePathGoal || isPhysicallyUnstable();
 
     if (shouldHold) {
       setPhysicsEnabled(true, reason);
@@ -249,70 +240,70 @@ export function createPathingModule(
       await new Promise((resolve) => setTimeout(resolve, remainingPauseMs));
     }
 
-    holdPhysics('prepare_pathing', 5000);
+    holdPhysics("prepare_pathing", 5000);
     ensurePathfinderLoaded();
     await bot.waitForChunksToLoad();
     ensureMovements();
     return getPathfinder();
   }
 
-  bot.on('spawn', () => {
+  bot.on("spawn", () => {
     if (pathfinderLoaded) {
       refreshMovements();
-      events.push('pathing:movements_ready', null);
+      events.push("pathing:movements_ready", null);
     }
 
     if (!physicsMonitorId) {
       physicsMonitorId = setInterval(() => {
-        syncPhysicsState('monitor');
+        syncPhysicsState("monitor");
       }, 50);
     }
 
-    holdPhysics('spawn', 2000);
+    holdPhysics("spawn", 2000);
   });
 
-  bot.on('forcedMove', () => {
-    holdPhysics('forced_move', 2000);
+  bot.on("forcedMove", () => {
+    holdPhysics("forced_move", 2000);
   });
 
-  bot.on('move', () => {
+  bot.on("move", () => {
     if (isPhysicallyUnstable()) {
-      holdPhysics('move_unstable', 1000);
+      holdPhysics("move_unstable", 1000);
     }
   });
 
-  pluginBot.on('goal_reached', () => {
-    events.push('pathing:goal_reached', null);
-    clearFollowState('goal_reached');
-    holdPhysics('goal_reached', 1000);
+  pluginBot.on("goal_reached", () => {
+    events.push("pathing:goal_reached", null);
+    clearFollowState("goal_reached");
+    holdPhysics("goal_reached", 1000);
   });
 
-  pluginBot.on('goal_updated', (goal) => {
-    events.push('pathing:goal_updated', {
+  pluginBot.on("goal_updated", (goal) => {
+    events.push("pathing:goal_updated", {
       goal: goal?.constructor?.name ?? null,
     });
   });
 
-  pluginBot.on('path_update', (result) => {
-    events.push('pathing:path_update', {
+  pluginBot.on("path_update", (result) => {
+    events.push("pathing:path_update", {
       status: result?.status ?? null,
       pathLength: result?.path?.length ?? null,
       visitedNodes: result?.visitedNodes ?? null,
     });
   });
 
-  pluginBot.on('path_reset', (reason) => {
-    events.push('pathing:path_reset', { reason });
+  pluginBot.on("path_reset", (reason) => {
+    events.push("pathing:path_reset", { reason });
     holdPhysics(`path_reset:${reason}`, 1500);
   });
 
-  pluginBot.on('path_stop', () => {
-    events.push('pathing:path_stop', null);
-    clearFollowState('path_stop');
-    holdPhysics('path_stop', 1000);
+  pluginBot.on("path_stop", () => {
+    events.push("pathing:path_stop", null);
+    clearFollowState("path_stop");
+    holdPhysics("path_stop", 1000);
   });
 
-  bot.on('blockUpdate', (oldBlock, newBlock) => {
+  bot.on("blockUpdate", (oldBlock, newBlock) => {
     const changedBlock = newBlock?.position ?? oldBlock?.position;
 
     if (!changedBlock || !bot.entity?.position) {
@@ -320,42 +311,38 @@ export function createPathingModule(
     }
 
     if (changedBlock.distanceTo(bot.entity.position) <= 2.5) {
-      holdPhysics('nearby_block_update', 2500);
+      holdPhysics("nearby_block_update", 2500);
     }
 
     const removedSupportBlock =
       isSupportSamplePosition(changedBlock) &&
-      oldBlock?.boundingBox === 'block' &&
-      newBlock?.boundingBox !== 'block';
+      oldBlock?.boundingBox === "block" &&
+      newBlock?.boundingBox !== "block";
 
     if (removedSupportBlock) {
-      holdPhysics('support_block_removed', 4000);
-      forceUnsupportedGroundFall('support_block_removed');
+      holdPhysics("support_block_removed", 4000);
+      forceUnsupportedGroundFall("support_block_removed");
     }
   });
 
-  bot.on('entityHurt', (entity) => {
+  bot.on("entityHurt", (entity) => {
     if (entity?.id === bot.entity?.id) {
-      holdPhysics('self_hurt', 2500);
+      holdPhysics("self_hurt", 2500);
     }
   });
 
-  bot.on('death', () => {
-    holdPhysics('death', 3000);
+  bot.on("death", () => {
+    holdPhysics("death", 3000);
   });
 
-  bot.on('end', () => {
+  bot.on("end", () => {
     if (physicsMonitorId) {
       clearInterval(physicsMonitorId);
       physicsMonitorId = null;
     }
   });
 
-  async function gotoOperation(
-    position: Vec3Like,
-    range = 0,
-    options: PathingOptions = {},
-  ) {
+  async function gotoOperation(position: Vec3Like, range = 0, options: PathingOptions = {}) {
     const pathfinderPlugin = await preparePathing(options);
     const target = toVec3(position).floored();
     const goal =
@@ -371,7 +358,7 @@ export function createPathingModule(
         range,
       };
     } finally {
-      holdPhysics('goto_complete', 1200);
+      holdPhysics("goto_complete", 1200);
     }
   }
 
@@ -383,7 +370,7 @@ export function createPathingModule(
     const pathfinderPlugin = await preparePathing(options);
 
     if (!block?.position) {
-      throw new Error('A block with a position is required');
+      throw new Error("A block with a position is required");
     }
 
     const target = toVec3(block.position).floored();
@@ -401,7 +388,7 @@ export function createPathingModule(
         range,
       };
     } finally {
-      holdPhysics('goto_block_complete', 1200);
+      holdPhysics("goto_block_complete", 1200);
     }
   }
 
@@ -422,7 +409,7 @@ export function createPathingModule(
         reach,
       };
     } finally {
-      holdPhysics('goto_look_complete', 1200);
+      holdPhysics("goto_look_complete", 1200);
     }
   }
 
@@ -442,7 +429,7 @@ export function createPathingModule(
         range: options.range ?? 4,
       };
     } finally {
-      holdPhysics('goto_place_complete', 1200);
+      holdPhysics("goto_place_complete", 1200);
     }
   }
 
@@ -450,11 +437,11 @@ export function createPathingModule(
     requireSpawned(bot);
 
     if (!entity?.position) {
-      throw new Error('Entity with position is required');
+      throw new Error("Entity with position is required");
     }
 
     const pathfinderPlugin = getPathfinder();
-    holdPhysics('follow_entity', 5000);
+    holdPhysics("follow_entity", 5000);
     ensureMovements();
 
     const followRange = Math.max(0.5, range);
@@ -465,7 +452,7 @@ export function createPathingModule(
 
     pathfinderPlugin.setGoal(new GoalFollow(entity as never, followRange), true);
 
-    events.push('pathing:follow_started', {
+    events.push("pathing:follow_started", {
       entity: serializeEntity(entity),
       range: followRange,
     });
@@ -495,104 +482,124 @@ export function createPathingModule(
         minDistance,
       };
     } finally {
-      holdPhysics('move_away_complete', 1200);
+      holdPhysics("move_away_complete", 1200);
     }
   }
 
-  const goto = instrumentAsyncOperation(events, {
-    action: 'pathing.goto',
-    failure: ([position], error) => ({
-      priority: 8,
-      tags: ['pathing', 'movement', 'goto'],
-      text: `Failed to move to ${formatPosition(position)}: ${error instanceof Error ? error.message : String(error)}`,
-    }),
-    start: ([position, range = 0]) => ({
-      priority: 4,
-      tags: ['pathing', 'movement', 'goto'],
-      text: `Moving to ${formatPosition(position)} with range ${range}`,
-    }),
-    success: (_args, result) => ({
-      priority: 6,
-      tags: ['pathing', 'movement', 'goto'],
-      text: `Reached ${result.position ? `${result.position.x},${result.position.y},${result.position.z}` : 'target'} within range ${result.range}`,
-    }),
-  }, gotoOperation);
+  const goto = instrumentAsyncOperation(
+    events,
+    {
+      action: "pathing.goto",
+      failure: ([position], error) => ({
+        priority: 8,
+        tags: ["pathing", "movement", "goto"],
+        text: `Failed to move to ${formatPosition(position)}: ${error instanceof Error ? error.message : String(error)}`,
+      }),
+      start: ([position, range = 0]) => ({
+        priority: 4,
+        tags: ["pathing", "movement", "goto"],
+        text: `Moving to ${formatPosition(position)} with range ${range}`,
+      }),
+      success: (_args, result) => ({
+        priority: 6,
+        tags: ["pathing", "movement", "goto"],
+        text: `Reached ${result.position ? `${result.position.x},${result.position.y},${result.position.z}` : "target"} within range ${result.range}`,
+      }),
+    },
+    gotoOperation,
+  );
 
-  const gotoBlock = instrumentAsyncOperation(events, {
-    action: 'pathing.gotoBlock',
-    failure: ([block], error) => ({
-      priority: 8,
-      tags: ['pathing', 'movement', 'goto_block'],
-      text: `Failed to move to ${block?.name ?? 'block'}: ${error instanceof Error ? error.message : String(error)}`,
-    }),
-    start: ([block, range = 1]) => ({
-      priority: 4,
-      tags: ['pathing', 'movement', 'goto_block'],
-      text: `Moving to ${block?.name ?? 'block'} with range ${range}`,
-    }),
-    success: (_args, result) => ({
-      priority: 6,
-      tags: ['pathing', 'movement', 'goto_block'],
-      text: `Reached ${result.block} within range ${result.range}`,
-    }),
-  }, gotoBlockOperation);
+  const gotoBlock = instrumentAsyncOperation(
+    events,
+    {
+      action: "pathing.gotoBlock",
+      failure: ([block], error) => ({
+        priority: 8,
+        tags: ["pathing", "movement", "goto_block"],
+        text: `Failed to move to ${block?.name ?? "block"}: ${error instanceof Error ? error.message : String(error)}`,
+      }),
+      start: ([block, range = 1]) => ({
+        priority: 4,
+        tags: ["pathing", "movement", "goto_block"],
+        text: `Moving to ${block?.name ?? "block"} with range ${range}`,
+      }),
+      success: (_args, result) => ({
+        priority: 6,
+        tags: ["pathing", "movement", "goto_block"],
+        text: `Reached ${result.block} within range ${result.range}`,
+      }),
+    },
+    gotoBlockOperation,
+  );
 
-  const gotoLookAt = instrumentAsyncOperation(events, {
-    action: 'pathing.gotoLookAt',
-    failure: ([position], error) => ({
-      priority: 8,
-      tags: ['pathing', 'movement', 'look'],
-      text: `Failed to look at ${formatPosition(position)}: ${error instanceof Error ? error.message : String(error)}`,
-    }),
-    start: ([position, reach = 4.5]) => ({
-      priority: 4,
-      tags: ['pathing', 'movement', 'look'],
-      text: `Moving into look range of ${formatPosition(position)} with reach ${reach}`,
-    }),
-    success: (_args, result) => ({
-      priority: 6,
-      tags: ['pathing', 'movement', 'look'],
-      text: `Reached look position for ${result.position ? `${result.position.x},${result.position.y},${result.position.z}` : 'target'}`,
-    }),
-  }, gotoLookAtOperation);
+  const gotoLookAt = instrumentAsyncOperation(
+    events,
+    {
+      action: "pathing.gotoLookAt",
+      failure: ([position], error) => ({
+        priority: 8,
+        tags: ["pathing", "movement", "look"],
+        text: `Failed to look at ${formatPosition(position)}: ${error instanceof Error ? error.message : String(error)}`,
+      }),
+      start: ([position, reach = 4.5]) => ({
+        priority: 4,
+        tags: ["pathing", "movement", "look"],
+        text: `Moving into look range of ${formatPosition(position)} with reach ${reach}`,
+      }),
+      success: (_args, result) => ({
+        priority: 6,
+        tags: ["pathing", "movement", "look"],
+        text: `Reached look position for ${result.position ? `${result.position.x},${result.position.y},${result.position.z}` : "target"}`,
+      }),
+    },
+    gotoLookAtOperation,
+  );
 
-  const gotoPlace = instrumentAsyncOperation(events, {
-    action: 'pathing.gotoPlace',
-    failure: ([position], error) => ({
-      priority: 8,
-      tags: ['pathing', 'movement', 'place'],
-      text: `Failed to reach placement spot at ${formatPosition(position)}: ${error instanceof Error ? error.message : String(error)}`,
-    }),
-    start: ([position]) => ({
-      priority: 4,
-      tags: ['pathing', 'movement', 'place'],
-      text: `Moving to placement spot at ${formatPosition(position)}`,
-    }),
-    success: (_args, result) => ({
-      priority: 6,
-      tags: ['pathing', 'movement', 'place'],
-      text: `Reached placement spot at ${result.position ? `${result.position.x},${result.position.y},${result.position.z}` : 'target'}`,
-    }),
-  }, gotoPlaceOperation);
+  const gotoPlace = instrumentAsyncOperation(
+    events,
+    {
+      action: "pathing.gotoPlace",
+      failure: ([position], error) => ({
+        priority: 8,
+        tags: ["pathing", "movement", "place"],
+        text: `Failed to reach placement spot at ${formatPosition(position)}: ${error instanceof Error ? error.message : String(error)}`,
+      }),
+      start: ([position]) => ({
+        priority: 4,
+        tags: ["pathing", "movement", "place"],
+        text: `Moving to placement spot at ${formatPosition(position)}`,
+      }),
+      success: (_args, result) => ({
+        priority: 6,
+        tags: ["pathing", "movement", "place"],
+        text: `Reached placement spot at ${result.position ? `${result.position.x},${result.position.y},${result.position.z}` : "target"}`,
+      }),
+    },
+    gotoPlaceOperation,
+  );
 
-  const moveAwayFrom = instrumentAsyncOperation(events, {
-    action: 'pathing.moveAwayFrom',
-    failure: ([position, minDistance = 12], error) => ({
-      priority: 8,
-      tags: ['pathing', 'movement', 'retreat'],
-      text: `Failed to move away from ${formatPosition(position)} to distance ${minDistance}: ${error instanceof Error ? error.message : String(error)}`,
-    }),
-    start: ([position, minDistance = 12]) => ({
-      priority: 5,
-      tags: ['pathing', 'movement', 'retreat'],
-      text: `Moving away from ${formatPosition(position)} to distance ${minDistance}`,
-    }),
-    success: (_args, result) => ({
-      priority: 7,
-      tags: ['pathing', 'movement', 'retreat'],
-      text: `Retreated from ${result.threat ? `${result.threat.x},${result.threat.y},${result.threat.z}` : 'threat'} to distance ${result.minDistance}`,
-    }),
-  }, moveAwayFromOperation);
+  const moveAwayFrom = instrumentAsyncOperation(
+    events,
+    {
+      action: "pathing.moveAwayFrom",
+      failure: ([position, minDistance = 12], error) => ({
+        priority: 8,
+        tags: ["pathing", "movement", "retreat"],
+        text: `Failed to move away from ${formatPosition(position)} to distance ${minDistance}: ${error instanceof Error ? error.message : String(error)}`,
+      }),
+      start: ([position, minDistance = 12]) => ({
+        priority: 5,
+        tags: ["pathing", "movement", "retreat"],
+        text: `Moving away from ${formatPosition(position)} to distance ${minDistance}`,
+      }),
+      success: (_args, result) => ({
+        priority: 7,
+        tags: ["pathing", "movement", "retreat"],
+        text: `Retreated from ${result.threat ? `${result.threat.x},${result.threat.y},${result.threat.z}` : "threat"} to distance ${result.minDistance}`,
+      }),
+    },
+    moveAwayFromOperation,
+  );
 
   function configure(options: Record<string, unknown> = {}) {
     Object.assign(pendingMovementOptions, options);
@@ -612,16 +619,16 @@ export function createPathingModule(
   }
 
   function stop(): void {
-    clearFollowState('stop');
+    clearFollowState("stop");
 
     if (bot.pathfinder) {
       bot.pathfinder.setGoal(null);
     }
 
-    holdPhysics('stop', 1000);
+    holdPhysics("stop", 1000);
   }
 
-  function pause(durationMs = 750, reason = 'manual_pause') {
+  function pause(durationMs = 750, reason = "manual_pause") {
     pausedUntil = Math.max(pausedUntil, Date.now() + durationMs);
 
     if (bot.pathfinder) {
@@ -630,7 +637,7 @@ export function createPathingModule(
 
     clearFollowState(reason);
     holdPhysics(reason, Math.max(durationMs, 1000));
-    events.push('pathing:paused', {
+    events.push("pathing:paused", {
       durationMs,
       reason,
     });
@@ -642,9 +649,9 @@ export function createPathingModule(
     };
   }
 
-  function stabilize(durationMs = 750, reason = 'manual_stabilize') {
+  function stabilize(durationMs = 750, reason = "manual_stabilize") {
     holdPhysics(reason, Math.max(durationMs, 1000));
-    events.push('pathing:stabilized', {
+    events.push("pathing:stabilized", {
       durationMs,
       reason,
     });
@@ -693,17 +700,13 @@ export function createPathingModule(
           movements?.allow1by1towers ??
           (pendingMovementOptions.allow1by1towers as boolean | undefined),
         allowParkour:
-          movements?.allowParkour ??
-          (pendingMovementOptions.allowParkour as boolean | undefined),
+          movements?.allowParkour ?? (pendingMovementOptions.allowParkour as boolean | undefined),
         allowSprinting:
           movements?.allowSprinting ??
           (pendingMovementOptions.allowSprinting as boolean | undefined),
-        canDig:
-          movements?.canDig ??
-          (pendingMovementOptions.canDig as boolean | undefined),
+        canDig: movements?.canDig ?? (pendingMovementOptions.canDig as boolean | undefined),
         maxDropDown:
-          movements?.maxDropDown ??
-          (pendingMovementOptions.maxDropDown as number | undefined),
+          movements?.maxDropDown ?? (pendingMovementOptions.maxDropDown as number | undefined),
       },
       follow: followState
         ? {

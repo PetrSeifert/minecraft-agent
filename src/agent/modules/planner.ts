@@ -6,19 +6,19 @@ import type {
   PlannerModule,
   PlannerStatus,
   StreamEvent,
-} from '../../types';
+} from "../../types";
 
 const DEFAULT_EVENT_REPLAN_DEBOUNCE_MS = 1_500;
 const DEFAULT_INITIAL_SPAWN_REPLAN_DELAY_MS = 1_000;
 
 type EventSource = EventStreamLike & {
-  on(event: 'event', listener: (event: StreamEvent) => void): void;
+  on(event: "event", listener: (event: StreamEvent) => void): void;
 };
 
 type GoalClient = {
   readonly model: string;
-  readonly provider: 'openrouter';
-  chooseGoal(snapshot: ReturnType<OrchestrationModule['snapshot']>): Promise<string>;
+  readonly provider: "openrouter";
+  chooseGoal(snapshot: ReturnType<OrchestrationModule["snapshot"]>): Promise<string>;
 };
 
 interface PlannerModuleOptions {
@@ -41,7 +41,7 @@ interface PlannerContext {
 }
 
 function normalizeGoal(value: string | null): string | null {
-  const text = value?.trim().replace(/\s+/g, ' ');
+  const text = value?.trim().replace(/\s+/g, " ");
   return text ? text.toLowerCase() : null;
 }
 
@@ -68,8 +68,7 @@ export function createPlannerModule(
   const setIntervalFn = options.setIntervalFn ?? setInterval;
   const setTimeoutFn = options.setTimeoutFn ?? setTimeout;
   const eventDebounceMs = options.eventDebounceMs ?? DEFAULT_EVENT_REPLAN_DEBOUNCE_MS;
-  const initialSpawnDelayMs =
-    options.initialSpawnDelayMs ?? DEFAULT_INITIAL_SPAWN_REPLAN_DELAY_MS;
+  const initialSpawnDelayMs = options.initialSpawnDelayMs ?? DEFAULT_INITIAL_SPAWN_REPLAN_DELAY_MS;
   const { client, events, memory, orchestration } = context;
   let enabled = options.startEnabled ?? true;
   let inFlight = false;
@@ -95,7 +94,7 @@ export function createPlannerModule(
   }
 
   function pushPlannerEvent(
-    type: 'request' | 'success' | 'failure' | 'skip' | 'state',
+    type: "request" | "success" | "failure" | "skip" | "state",
     payload: Record<string, unknown>,
   ): void {
     events.push(`planner:${type}`, {
@@ -129,23 +128,23 @@ export function createPlannerModule(
     lastTrigger = trigger;
 
     if (!enabled && !force) {
-      pushPlannerEvent('skip', {
-        reason: 'disabled',
+      pushPlannerEvent("skip", {
+        reason: "disabled",
         trigger,
       });
       return status();
     }
 
     if (inFlight) {
-      pushPlannerEvent('skip', {
-        reason: 'in_flight',
+      pushPlannerEvent("skip", {
+        reason: "in_flight",
         trigger,
       });
       return status();
     }
 
     inFlight = true;
-    pushPlannerEvent('request', { trigger });
+    pushPlannerEvent("request", { trigger });
 
     try {
       const snapshot = orchestration.snapshot();
@@ -159,7 +158,7 @@ export function createPlannerModule(
 
       lastError = null;
       lastPlannedAt = toTimestamp(now());
-      pushPlannerEvent('success', {
+      pushPlannerEvent("success", {
         changed,
         goal: chosenGoal,
         trigger,
@@ -168,16 +167,16 @@ export function createPlannerModule(
     } catch (error: unknown) {
       const message = serializeError(error);
 
-      if (message.includes('Bot has not spawned yet')) {
-        pushPlannerEvent('skip', {
-          reason: 'not_spawned',
+      if (message.includes("Bot has not spawned yet")) {
+        pushPlannerEvent("skip", {
+          reason: "not_spawned",
           trigger,
         });
         return status();
       }
 
       lastError = message;
-      pushPlannerEvent('failure', {
+      pushPlannerEvent("failure", {
         error: message,
         trigger,
       });
@@ -212,7 +211,7 @@ export function createPlannerModule(
     }
 
     intervalTimer = setIntervalFn(() => {
-      void runPlanningCycle('interval');
+      void runPlanningCycle("interval");
     }, context.goalPlannerIntervalMs);
   }
 
@@ -222,14 +221,14 @@ export function createPlannerModule(
     }
 
     enabled = true;
-    pushPlannerEvent('state', {
+    pushPlannerEvent("state", {
       enabled,
-      trigger: 'enable',
+      trigger: "enable",
     });
     startInterval();
 
     if (hasSpawned) {
-      scheduleReplan('enable', 0);
+      scheduleReplan("enable", 0);
     }
 
     return status();
@@ -239,36 +238,36 @@ export function createPlannerModule(
     enabled = false;
     stopInterval();
     clearPendingReplan();
-    pushPlannerEvent('state', {
+    pushPlannerEvent("state", {
       enabled,
-      trigger: 'disable',
+      trigger: "disable",
     });
     return status();
   }
 
-  bot.on('spawn', () => {
+  bot.on("spawn", () => {
     hasSpawned = true;
-    scheduleReplan('spawn', initialSpawnDelayMs);
+    scheduleReplan("spawn", initialSpawnDelayMs);
   });
 
-  bot.on('death', () => {
-    scheduleReplan('death');
+  bot.on("death", () => {
+    scheduleReplan("death");
   });
 
-  bot.on('end', () => {
+  bot.on("end", () => {
     stopInterval();
     clearPendingReplan();
   });
 
-  events.on('event', (event) => {
-    if (event.type !== 'goal:update') {
+  events.on("event", (event) => {
+    if (event.type !== "goal:update") {
       return;
     }
 
     const payload = event.payload as { goal?: unknown } | null;
 
     if (payload?.goal == null) {
-      scheduleReplan('goal_cleared');
+      scheduleReplan("goal_cleared");
     }
   });
 
@@ -279,7 +278,7 @@ export function createPlannerModule(
   return {
     disable,
     enable,
-    replanNow(reason = 'manual') {
+    replanNow(reason = "manual") {
       return runPlanningCycle(reason, true);
     },
     status,

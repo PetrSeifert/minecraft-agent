@@ -7,23 +7,23 @@ import type {
   OrchestrationModule,
   SafetyModule,
   StreamEvent,
-} from '../../types';
-import type { ExecutorToolInvocation, ExecutorToolRegistry } from './executorTools';
+} from "../../types";
+import type { ExecutorToolInvocation, ExecutorToolRegistry } from "./executorTools";
 
 const DEFAULT_EVENT_DEBOUNCE_MS = 750;
 const DEFAULT_INITIAL_SPAWN_DELAY_MS = 500;
 
 type EventSource = EventStreamLike & {
-  on(event: 'event', listener: (event: StreamEvent) => void): void;
+  on(event: "event", listener: (event: StreamEvent) => void): void;
 };
 
 type ExecutorClient = {
   chooseTool(
-    snapshot: ReturnType<OrchestrationModule['snapshot']>,
-    tools: ReturnType<ExecutorToolRegistry['definitions']>,
+    snapshot: ReturnType<OrchestrationModule["snapshot"]>,
+    tools: ReturnType<ExecutorToolRegistry["definitions"]>,
   ): Promise<ExecutorDecision>;
   readonly model: string;
-  readonly provider: 'openrouter';
+  readonly provider: "openrouter";
 };
 
 interface ExecutorModuleOptions {
@@ -68,8 +68,7 @@ export function createExecutorModule(
   const setIntervalFn = options.setIntervalFn ?? setInterval;
   const setTimeoutFn = options.setTimeoutFn ?? setTimeout;
   const eventDebounceMs = options.eventDebounceMs ?? DEFAULT_EVENT_DEBOUNCE_MS;
-  const initialSpawnDelayMs =
-    options.initialSpawnDelayMs ?? DEFAULT_INITIAL_SPAWN_DELAY_MS;
+  const initialSpawnDelayMs = options.initialSpawnDelayMs ?? DEFAULT_INITIAL_SPAWN_DELAY_MS;
   const { client, events, orchestration, safety, tools } = context;
   let enabled = options.startEnabled ?? true;
   let inFlight = false;
@@ -98,7 +97,7 @@ export function createExecutorModule(
   }
 
   function pushExecutorEvent(
-    type: 'request' | 'success' | 'failure' | 'skip' | 'state',
+    type: "request" | "success" | "failure" | "skip" | "state",
     payload: Record<string, unknown>,
   ): void {
     events.push(`executor:${type}`, {
@@ -153,42 +152,39 @@ export function createExecutorModule(
     }
 
     intervalTimer = setIntervalFn(() => {
-      void runExecutionCycle('interval');
+      void runExecutionCycle("interval");
     }, context.goalExecutorIntervalMs);
   }
 
   function applyInvocationOutcome(invocation: ExecutorToolInvocation): void {
-    if (invocation.outcome === 'wait' && invocation.nextDelayMs) {
+    if (invocation.outcome === "wait" && invocation.nextDelayMs) {
       cooldownUntil = Math.max(cooldownUntil, now() + invocation.nextDelayMs);
     }
   }
 
-  async function runExecutionCycle(
-    trigger: string,
-    force = false,
-  ): Promise<ExecutorStatus> {
+  async function runExecutionCycle(trigger: string, force = false): Promise<ExecutorStatus> {
     lastTrigger = trigger;
 
     if (!enabled && !force) {
-      pushExecutorEvent('skip', { reason: 'disabled', trigger });
+      pushExecutorEvent("skip", { reason: "disabled", trigger });
       return status();
     }
 
     if (inFlight) {
-      pushExecutorEvent('skip', { reason: 'in_flight', trigger });
+      pushExecutorEvent("skip", { reason: "in_flight", trigger });
       return status();
     }
 
     const currentGoal = context.memory.currentGoal();
 
     if (!currentGoal) {
-      pushExecutorEvent('skip', { reason: 'no_goal', trigger });
+      pushExecutorEvent("skip", { reason: "no_goal", trigger });
       return status();
     }
 
     if (!force && cooldownUntil > now()) {
-      pushExecutorEvent('skip', {
-        reason: 'cooldown',
+      pushExecutorEvent("skip", {
+        reason: "cooldown",
         trigger,
         until: toTimestamp(cooldownUntil),
       });
@@ -196,12 +192,12 @@ export function createExecutorModule(
     }
 
     if (safety.status().escapeInProgress) {
-      pushExecutorEvent('skip', { reason: 'safety_escape', trigger });
+      pushExecutorEvent("skip", { reason: "safety_escape", trigger });
       return status();
     }
 
     inFlight = true;
-    pushExecutorEvent('request', { trigger });
+    pushExecutorEvent("request", { trigger });
 
     try {
       const snapshot = orchestration.snapshot();
@@ -212,7 +208,7 @@ export function createExecutorModule(
       lastError = null;
       lastStepAt = toTimestamp(now());
       applyInvocationOutcome(invocation);
-      pushExecutorEvent('success', {
+      pushExecutorEvent("success", {
         args: decision.args,
         outcome: invocation.outcome,
         result: invocation.result,
@@ -224,13 +220,13 @@ export function createExecutorModule(
     } catch (error: unknown) {
       const message = serializeError(error);
 
-      if (message.includes('Bot has not spawned yet')) {
-        pushExecutorEvent('skip', { reason: 'not_spawned', trigger });
+      if (message.includes("Bot has not spawned yet")) {
+        pushExecutorEvent("skip", { reason: "not_spawned", trigger });
         return status();
       }
 
       lastError = message;
-      pushExecutorEvent('failure', {
+      pushExecutorEvent("failure", {
         decision: lastDecision,
         error: message,
         trigger,
@@ -247,14 +243,14 @@ export function createExecutorModule(
     }
 
     enabled = true;
-    pushExecutorEvent('state', {
+    pushExecutorEvent("state", {
       enabled,
-      trigger: 'enable',
+      trigger: "enable",
     });
     startInterval();
 
     if (hasSpawned && context.memory.currentGoal()) {
-      scheduleStep('enable', 0);
+      scheduleStep("enable", 0);
     }
 
     return status();
@@ -264,36 +260,36 @@ export function createExecutorModule(
     enabled = false;
     stopInterval();
     clearPendingStep();
-    pushExecutorEvent('state', {
+    pushExecutorEvent("state", {
       enabled,
-      trigger: 'disable',
+      trigger: "disable",
     });
     return status();
   }
 
-  bot.on('spawn', () => {
+  bot.on("spawn", () => {
     hasSpawned = true;
 
     if (context.memory.currentGoal()) {
-      scheduleStep('spawn', initialSpawnDelayMs);
+      scheduleStep("spawn", initialSpawnDelayMs);
     }
   });
 
-  bot.on('end', () => {
+  bot.on("end", () => {
     stopInterval();
     clearPendingStep();
   });
 
-  events.on('event', (event) => {
-    if (event.type !== 'goal:update') {
+  events.on("event", (event) => {
+    if (event.type !== "goal:update") {
       return;
     }
 
     const payload = event.payload as { goal?: unknown } | null;
 
-    if (typeof payload?.goal === 'string' && payload.goal.trim()) {
+    if (typeof payload?.goal === "string" && payload.goal.trim()) {
       cooldownUntil = 0;
-      scheduleStep('goal_update', 0);
+      scheduleStep("goal_update", 0);
     }
   });
 
@@ -305,7 +301,7 @@ export function createExecutorModule(
     disable,
     enable,
     status,
-    stepNow(reason = 'manual') {
+    stepNow(reason = "manual") {
       return runExecutionCycle(reason, true);
     },
   };

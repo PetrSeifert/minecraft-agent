@@ -1,9 +1,5 @@
-import { instrumentAsyncOperation } from '../operationEvents';
-import {
-  normalizeMinecraftName,
-  resolveItem,
-  serializeItem,
-} from '../utils';
+import { instrumentAsyncOperation } from "../operationEvents";
+import { normalizeMinecraftName, requireSpawned, resolveItem, serializeItem } from "../utils";
 
 import type {
   EventStreamLike,
@@ -12,7 +8,7 @@ import type {
   ItemLike,
   MinecraftBot,
   SerializedItem,
-} from '../../types';
+} from "../../types";
 
 interface FoodDefinition {
   effectiveQuality?: number;
@@ -55,10 +51,7 @@ function foodScore(food: FoodDefinition | null | undefined): number {
   return food.effectiveQuality ?? food.foodPoints ?? 0;
 }
 
-export function createInventoryModule(
-  bot: MinecraftBot,
-  events: EventStreamLike,
-): InventoryModule {
+export function createInventoryModule(bot: MinecraftBot, events: EventStreamLike): InventoryModule {
   function items(): Array<SerializedItem | null> {
     return bot.inventory.items().map((item) => serializeItem(item as ItemLike | null));
   }
@@ -70,24 +63,24 @@ export function createInventoryModule(
   function findItemByName(name: string): ItemLike | null {
     const itemDefinition = resolveItem(bot, name);
     return (
-      bot.inventory
-        .items()
-        .find((item) => item.type === itemDefinition.id) as ItemLike | undefined
-    ) ?? null;
+      (bot.inventory.items().find((item) => item.type === itemDefinition.id) as
+        | ItemLike
+        | undefined) ?? null
+    );
   }
 
   function count(name: string): number {
     const itemName = normalizeMinecraftName(name);
 
-    return bot
-      .inventory.items()
+    return bot.inventory
+      .items()
       .filter((item) => item.name === itemName)
       .reduce((sum, item) => sum + item.count, 0);
   }
 
   async function equipOperation(
     name: string,
-    destination = 'hand',
+    destination = "hand",
   ): Promise<SerializedItem | null> {
     const item = findItemByName(name);
 
@@ -96,7 +89,7 @@ export function createInventoryModule(
     }
 
     await bot.equip(item as never, destination as never);
-    events.push('inventory:equip', {
+    events.push("inventory:equip", {
       destination,
       item: serializeItem(item),
     });
@@ -111,7 +104,7 @@ export function createInventoryModule(
     const itemDefinition = resolveItem(bot, name);
     await bot.toss(itemDefinition.id, null, countValue);
 
-    events.push('inventory:toss', {
+    events.push("inventory:toss", {
       count: countValue,
       name: itemDefinition.name,
     });
@@ -156,7 +149,7 @@ export function createInventoryModule(
     const candidate = edibleItems[0];
 
     if (!candidate) {
-      throw new Error('No edible food items available in inventory');
+      throw new Error("No edible food items available in inventory");
     }
 
     return candidate;
@@ -165,73 +158,139 @@ export function createInventoryModule(
   async function consumeFoodOperation(name?: string): Promise<SerializedItem | null> {
     const item = selectFoodItem(name);
 
-    await bot.equip(item as never, 'hand');
+    await bot.equip(item as never, "hand");
     await bot.consume();
 
     const serializedItem = serializeItem(item);
-    events.push('inventory:consume', {
+    events.push("inventory:consume", {
       item: serializedItem,
     } as JsonValue);
 
     return serializedItem;
   }
 
-  const equip = instrumentAsyncOperation(events, {
-    action: 'inventory.equip',
-    failure: ([name, destination = 'hand'], error) => ({
-      priority: 8,
-      tags: ['inventory', 'equip'],
-      text: `Failed to equip ${name} to ${destination}: ${error instanceof Error ? error.message : String(error)}`,
-    }),
-    start: ([name, destination = 'hand']) => ({
-      priority: 4,
-      tags: ['inventory', 'equip'],
-      text: `Equipping ${name} to ${destination}`,
-    }),
-    success: ([name, destination = 'hand'], item) => ({
-      priority: 6,
-      tags: ['inventory', 'equip'],
-      text: `Equipped ${item?.name ?? name} to ${destination}`,
-    }),
-  }, equipOperation);
+  async function useHeldItemOperation(options: { offHand?: boolean; release?: boolean } = {}) {
+    requireSpawned(bot);
 
-  const toss = instrumentAsyncOperation(events, {
-    action: 'inventory.toss',
-    failure: ([name, countValue = 1], error) => ({
-      priority: 8,
-      tags: ['inventory', 'toss'],
-      text: `Failed to toss ${countValue} ${name}: ${error instanceof Error ? error.message : String(error)}`,
-    }),
-    start: ([name, countValue = 1]) => ({
-      priority: 4,
-      tags: ['inventory', 'toss'],
-      text: `Tossing ${countValue} ${name}`,
-    }),
-    success: (_args, result) => ({
-      priority: 6,
-      tags: ['inventory', 'toss'],
-      text: `Tossed ${result.count} ${result.name}`,
-    }),
-  }, tossOperation);
+    const offHand = Boolean(options.offHand);
+    const release = Boolean(options.release);
 
-  const consumeFood = instrumentAsyncOperation(events, {
-    action: 'inventory.consumeFood',
-    failure: ([name], error) => ({
-      priority: 8,
-      tags: ['inventory', 'consume', 'food'],
-      text: `Failed to consume ${name ?? 'food'}: ${error instanceof Error ? error.message : String(error)}`,
-    }),
-    start: ([name]) => ({
-      priority: 4,
-      tags: ['inventory', 'consume', 'food'],
-      text: `Consuming ${name ?? 'food'}`,
-    }),
-    success: ([name], item) => ({
-      priority: 6,
-      tags: ['inventory', 'consume', 'food'],
-      text: `Consumed ${item?.name ?? name ?? 'food'}`,
-    }),
-  }, consumeFoodOperation);
+    if (release) {
+      if (typeof bot.deactivateItem !== "function") {
+        throw new Error("deactivateItem is not available on this bot");
+      }
+
+      bot.deactivateItem();
+    } else {
+      if (typeof bot.activateItem !== "function") {
+        throw new Error("activateItem is not available on this bot");
+      }
+
+      bot.activateItem(offHand);
+    }
+
+    events.push("inventory:use_held", {
+      offHand,
+      release,
+    } as JsonValue);
+
+    return {
+      offHand,
+      release,
+    };
+  }
+
+  const equip = instrumentAsyncOperation(
+    events,
+    {
+      action: "inventory.equip",
+      failure: ([name, destination = "hand"], error) => ({
+        priority: 8,
+        tags: ["inventory", "equip"],
+        text: `Failed to equip ${name} to ${destination}: ${error instanceof Error ? error.message : String(error)}`,
+      }),
+      start: ([name, destination = "hand"]) => ({
+        priority: 4,
+        tags: ["inventory", "equip"],
+        text: `Equipping ${name} to ${destination}`,
+      }),
+      success: ([name, destination = "hand"], item) => ({
+        priority: 6,
+        tags: ["inventory", "equip"],
+        text: `Equipped ${item?.name ?? name} to ${destination}`,
+      }),
+    },
+    equipOperation,
+  );
+
+  const toss = instrumentAsyncOperation(
+    events,
+    {
+      action: "inventory.toss",
+      failure: ([name, countValue = 1], error) => ({
+        priority: 8,
+        tags: ["inventory", "toss"],
+        text: `Failed to toss ${countValue} ${name}: ${error instanceof Error ? error.message : String(error)}`,
+      }),
+      start: ([name, countValue = 1]) => ({
+        priority: 4,
+        tags: ["inventory", "toss"],
+        text: `Tossing ${countValue} ${name}`,
+      }),
+      success: (_args, result) => ({
+        priority: 6,
+        tags: ["inventory", "toss"],
+        text: `Tossed ${result.count} ${result.name}`,
+      }),
+    },
+    tossOperation,
+  );
+
+  const useHeldItem = instrumentAsyncOperation(
+    events,
+    {
+      action: "inventory.useHeldItem",
+      failure: ([options], error) => ({
+        priority: 7,
+        tags: ["inventory", "use_held"],
+        text: `Failed to ${options?.release ? "release" : "activate"} held item: ${error instanceof Error ? error.message : String(error)}`,
+      }),
+      start: ([options]) => ({
+        priority: 3,
+        tags: ["inventory", "use_held"],
+        text: options?.release ? "Releasing held item use" : "Activating held item use",
+      }),
+      success: () => ({
+        priority: 5,
+        tags: ["inventory", "use_held"],
+        text: "Updated held item interaction",
+      }),
+    },
+    useHeldItemOperation,
+  );
+
+  const consumeFood = instrumentAsyncOperation(
+    events,
+    {
+      action: "inventory.consumeFood",
+      failure: ([name], error) => ({
+        priority: 8,
+        tags: ["inventory", "consume", "food"],
+        text: `Failed to consume ${name ?? "food"}: ${error instanceof Error ? error.message : String(error)}`,
+      }),
+      start: ([name]) => ({
+        priority: 4,
+        tags: ["inventory", "consume", "food"],
+        text: `Consuming ${name ?? "food"}`,
+      }),
+      success: ([name], item) => ({
+        priority: 6,
+        tags: ["inventory", "consume", "food"],
+        text: `Consumed ${item?.name ?? name ?? "food"}`,
+      }),
+    },
+    consumeFoodOperation,
+  );
 
   function hotbarSlot(): number {
     return bot.quickBarSlot;
@@ -256,5 +315,6 @@ export function createInventoryModule(
     items,
     summary,
     toss,
+    useHeldItem,
   };
 }

@@ -1,5 +1,5 @@
-import { createBot } from './bot/createBot';
-import { loadConfig } from './config';
+import { createBot } from "./bot/createBot";
+import { loadConfig } from "./config";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -14,6 +14,6 @@ async function main(): Promise<void> {
 
 void main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error('[startup] Failed to start bot:', message);
+  console.error("[startup] Failed to start bot:", message);
   process.exitCode = 1;
 });

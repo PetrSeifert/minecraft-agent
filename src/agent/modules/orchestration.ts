@@ -1,4 +1,4 @@
-import { summarizePayload, requireSpawned, serializeVec3 } from '../utils';
+import { summarizePayload, requireSpawned, serializeVec3 } from "../utils";
 
 import type {
   ChatHistoryEntry,
@@ -14,28 +14,21 @@ import type {
   SafetyStatus,
   VisibleBlockSummary,
   WorldModule,
-} from '../../types';
+} from "../../types";
 
 const MAX_NEARBY_BLOCKS = 20;
 const MAX_PERCEPTION_ITEMS = 10;
-const EQUIPMENT_DESTINATIONS = [
-  'hand',
-  'head',
-  'torso',
-  'legs',
-  'feet',
-  'off-hand',
-] as const;
+const EQUIPMENT_DESTINATIONS = ["hand", "head", "torso", "legs", "feet", "off-hand"] as const;
 const CONTAINER_BLOCK_NAMES = new Set([
-  'barrel',
-  'blast_furnace',
-  'chest',
-  'dispenser',
-  'dropper',
-  'furnace',
-  'hopper',
-  'smoker',
-  'trapped_chest',
+  "barrel",
+  "blast_furnace",
+  "chest",
+  "dispenser",
+  "dropper",
+  "furnace",
+  "hopper",
+  "smoker",
+  "trapped_chest",
 ]);
 
 interface OrchestrationContext {
@@ -61,7 +54,7 @@ function aggregateInventoryCounts(
   return items.reduce<Record<string, number>>((counts, item) => {
     const count = item?.count;
 
-    if (!item?.name || typeof count !== 'number' || !Number.isFinite(count)) {
+    if (!item?.name || typeof count !== "number" || !Number.isFinite(count)) {
       return counts;
     }
 
@@ -85,7 +78,7 @@ function collectEquippedItemNames(bot: MinecraftBot): string[] {
 
   pushItem(bot.heldItem);
 
-  if (typeof bot.getEquipmentDestSlot !== 'function') {
+  if (typeof bot.getEquipmentDestSlot !== "function") {
     return equipped;
   }
 
@@ -105,7 +98,7 @@ function collectEquippedItemNames(bot: MinecraftBot): string[] {
 function classifyRiskLevel(
   safetyStatus: Partial<SafetyStatus>,
   health: number | null = null,
-): 'high' | 'low' | 'medium' {
+): "high" | "low" | "medium" {
   const currentHealth = Number.isFinite(health)
     ? Number(health)
     : Number(safetyStatus.health ?? Number.NaN);
@@ -118,32 +111,33 @@ function classifyRiskLevel(
     safetyStatus.mobAggro ||
     (Number.isFinite(currentHealth) && currentHealth <= 8)
   ) {
-    return 'high';
+    return "high";
   }
 
   if (hostileCount > 0 || (Number.isFinite(currentHealth) && currentHealth <= 14)) {
-    return 'medium';
+    return "medium";
   }
 
-  return 'low';
+  return "low";
 }
 
-function formatEntitySummary(entity: { distance?: number | null; displayName?: string | null; name?: string | null; type?: string | null; username?: string | null } | null): string | null {
+function formatEntitySummary(
+  entity: {
+    distance?: number | null;
+    displayName?: string | null;
+    name?: string | null;
+    type?: string | null;
+    username?: string | null;
+  } | null,
+): string | null {
   if (!entity) {
     return null;
   }
 
-  const label =
-    entity.username ??
-    entity.name ??
-    entity.displayName ??
-    entity.type ??
-    'unknown';
+  const label = entity.username ?? entity.name ?? entity.displayName ?? entity.type ?? "unknown";
 
   const distanceValue = Number(entity.distance);
-  return Number.isFinite(distanceValue)
-    ? `${label} (${formatDistance(distanceValue)})`
-    : label;
+  return Number.isFinite(distanceValue) ? `${label} (${formatDistance(distanceValue)})` : label;
 }
 
 function formatChatHistoryEntry(entry: ChatHistoryEntry | null): string | null {
@@ -151,26 +145,28 @@ function formatChatHistoryEntry(entry: ChatHistoryEntry | null): string | null {
     return null;
   }
 
-  if (entry.channel === 'public' && entry.username && entry.text) {
+  if (entry.channel === "public" && entry.username && entry.text) {
     return `<${entry.username}> ${entry.text}`;
   }
 
-  if (entry.channel === 'server' && entry.text) {
+  if (entry.channel === "server" && entry.text) {
     return entry.text;
   }
 
   if (entry.username && entry.text) {
-    return `[${entry.channel ?? 'chat'}] <${entry.username}> ${entry.text}`;
+    return `[${entry.channel ?? "chat"}] <${entry.username}> ${entry.text}`;
   }
 
   if (entry.text) {
-    return `[${entry.channel ?? 'chat'}] ${entry.text}`;
+    return `[${entry.channel ?? "chat"}] ${entry.text}`;
   }
 
   return null;
 }
 
-function formatEventSummary(event: { payload?: unknown; type?: string | null } | null): string | null {
+function formatEventSummary(
+  event: { payload?: unknown; type?: string | null } | null,
+): string | null {
   if (!event?.type) {
     return null;
   }
@@ -180,11 +176,11 @@ function formatEventSummary(event: { payload?: unknown; type?: string | null } |
 }
 
 function isSolidBlock(block: { boundingBox?: string | null } | null): boolean {
-  return block?.boundingBox === 'block';
+  return block?.boundingBox === "block";
 }
 
 function isEmptyBlock(block: { boundingBox?: string | null } | null): boolean {
-  return !block || block.boundingBox === 'empty';
+  return !block || block.boundingBox === "empty";
 }
 
 function isShelterCueBlockName(name: string | null | undefined): boolean {
@@ -192,11 +188,7 @@ function isShelterCueBlockName(name: string | null | undefined): boolean {
     return false;
   }
 
-  return (
-    name.endsWith('_bed') ||
-    name.endsWith('_door') ||
-    name.endsWith('_trapdoor')
-  );
+  return name.endsWith("_bed") || name.endsWith("_door") || name.endsWith("_trapdoor");
 }
 
 function isContainerBlockName(name: string | null | undefined): boolean {
@@ -204,7 +196,7 @@ function isContainerBlockName(name: string | null | undefined): boolean {
     return false;
   }
 
-  return CONTAINER_BLOCK_NAMES.has(name) || name.endsWith('_shulker_box');
+  return CONTAINER_BLOCK_NAMES.has(name) || name.endsWith("_shulker_box");
 }
 
 function isCurrentPositionEnclosed(bot: MinecraftBot): boolean {
@@ -216,19 +208,11 @@ function isCurrentPositionEnclosed(bot: MinecraftBot): boolean {
   const ground = bot.blockAt(origin.offset(0, -1, 0));
   const roof = bot.blockAt(origin.offset(0, 2, 0));
 
-  return (
-    isSolidBlock(ground) &&
-    isEmptyBlock(feet) &&
-    isEmptyBlock(head) &&
-    isSolidBlock(roof)
-  );
+  return isSolidBlock(ground) && isEmptyBlock(feet) && isEmptyBlock(head) && isSolidBlock(roof);
 }
 
-function extractShelterCues(
-  blockEntries: VisibleBlockSummary[],
-  shelteredNow: boolean,
-): string[] {
-  const cues = shelteredNow ? ['current_position_enclosed'] : [];
+function extractShelterCues(blockEntries: VisibleBlockSummary[], shelteredNow: boolean): string[] {
+  const cues = shelteredNow ? ["current_position_enclosed"] : [];
 
   for (const block of blockEntries) {
     if (!isShelterCueBlockName(block.name)) {
@@ -259,7 +243,7 @@ function findBiome(bot: MinecraftBot): string {
   const feetBlock = bot.blockAt(origin);
   const groundBlock = bot.blockAt(origin.offset(0, -1, 0));
 
-  return feetBlock?.biome?.name ?? groundBlock?.biome?.name ?? 'unknown';
+  return feetBlock?.biome?.name ?? groundBlock?.biome?.name ?? "unknown";
 }
 
 function buildPerception(context: {
@@ -290,9 +274,7 @@ function buildPerception(context: {
   const scannedBlocks = visibleArea.visibleBlocks;
 
   return {
-    nearbyBlocks: scannedBlocks
-      .slice(0, MAX_NEARBY_BLOCKS)
-      .map((block) => block.name),
+    nearbyBlocks: scannedBlocks.slice(0, MAX_NEARBY_BLOCKS).map((block) => block.name),
     nearbyEntities: visibleArea.visibleEntities
       .map(formatEntitySummary)
       .filter((value): value is string => Boolean(value)),
@@ -307,9 +289,7 @@ function buildPerception(context: {
       .filter((value): value is string => Boolean(value)),
     recentEvents: events
       .recent(50)
-      .filter(
-        (event) => typeof event?.type === 'string' && !event.type.startsWith('chat:'),
-      )
+      .filter((event) => typeof event?.type === "string" && !event.type.startsWith("chat:"))
       .slice(-10)
       .map(formatEventSummary)
       .filter((value): value is string => Boolean(value)),
@@ -328,9 +308,7 @@ export function createOrchestrationModule(
 
     const safetyStatus = safety.status(16);
     const memoryState = context.memory.state();
-    const recentFailures = memoryState.working.filter((item) =>
-      item.tags.includes('failure'),
-    );
+    const recentFailures = memoryState.working.filter((item) => item.tags.includes("failure"));
 
     return {
       self: {
@@ -338,7 +316,7 @@ export function createOrchestrationModule(
         hunger: bot.food ?? 0,
         position: serializeVec3(bot.entity.position),
         biome: findBiome(bot),
-        timeOfDay: bot.time?.isDay === false ? 'night' : 'day',
+        timeOfDay: bot.time?.isDay === false ? "night" : "day",
         inventory: aggregateInventoryCounts(inventory.items()),
         equipped: collectEquippedItemNames(bot),
         risk: classifyRiskLevel(safetyStatus, bot.health ?? null),

@@ -1,20 +1,16 @@
-import type {
-  ExecutorDecision,
-  JsonValue,
-  OrchestrationSnapshot,
-} from '../types';
+import type { ExecutorDecision, JsonValue, OrchestrationSnapshot } from "../types";
 
 const DEFAULT_TEMPERATURE = 0.1;
 
 const SYSTEM_PROMPT = [
-  'You are executing one next Minecraft bot step toward the current goal.',
-  'Always choose exactly one tool call.',
-  'Keep actions local, concrete, and achievable from the current snapshot.',
-  'Prioritize survival over the current goal.',
-  'Use wait when more information or time is needed.',
-  'Use mark_goal_complete only when the goal is already satisfied.',
-  'Use mark_goal_blocked only when the goal cannot currently progress with available nearby options.',
-].join(' ');
+  "You are executing one next Minecraft bot step toward the current goal.",
+  "Always choose exactly one tool call.",
+  "Keep actions local, concrete, and achievable from the current snapshot.",
+  "Prioritize survival over the current goal.",
+  "Use wait when more information or time is needed.",
+  "Use mark_goal_complete only when the goal is already satisfied.",
+  "Use mark_goal_blocked only when the goal cannot currently progress with available nearby options.",
+].join(" ");
 
 interface OpenRouterToolDefinition {
   description: string;
@@ -73,7 +69,7 @@ export interface OpenRouterExecutorClient {
   ): Promise<ExecutorDecision>;
   ensureToolSupport(): Promise<void>;
   readonly model: string;
-  readonly provider: 'openrouter';
+  readonly provider: "openrouter";
 }
 
 export interface OpenRouterExecutorClientConfig {
@@ -86,24 +82,22 @@ type FetchLike = typeof fetch;
 
 function validateClientConfig(config: OpenRouterExecutorClientConfig): void {
   if (!config.apiKey.trim()) {
-    throw new Error('OpenRouter API key is not configured');
+    throw new Error("OpenRouter API key is not configured");
   }
 
   if (!config.model.trim()) {
-    throw new Error('OpenRouter model is not configured');
+    throw new Error("OpenRouter model is not configured");
   }
 }
 
 function truncateBody(text: string, limit = 200): string {
-  const normalized = text.replace(/\s+/g, ' ').trim();
+  const normalized = text.replace(/\s+/g, " ").trim();
 
   if (!normalized) {
-    return '';
+    return "";
   }
 
-  return normalized.length > limit
-    ? `${normalized.slice(0, limit - 1)}...`
-    : normalized;
+  return normalized.length > limit ? `${normalized.slice(0, limit - 1)}...` : normalized;
 }
 
 function buildHttpErrorMessage(parsedBody: ParsedResponseBody, status: number): string {
@@ -145,7 +139,7 @@ async function parseResponseBody(response: Response): Promise<ParsedResponseBody
 function buildUserPrompt(snapshot: OrchestrationSnapshot): string {
   return JSON.stringify({
     instructions: {
-      responseMode: 'tool_call_only',
+      responseMode: "tool_call_only",
       stepBudget: 1,
     },
     snapshot,
@@ -160,15 +154,11 @@ function buildRequestBody(
 ): Record<string, unknown> {
   return {
     model: config.model,
-    ...(options.includeParallelToolCalls
-      ? { parallel_tool_calls: false }
-      : {}),
+    ...(options.includeParallelToolCalls ? { parallel_tool_calls: false } : {}),
     temperature: DEFAULT_TEMPERATURE,
-    ...(options.includeToolChoice
-      ? { tool_choice: 'required' }
-      : {}),
+    ...(options.includeToolChoice ? { tool_choice: "required" } : {}),
     tools: tools.map((tool) => ({
-      type: 'function',
+      type: "function",
       function: {
         name: tool.name,
         description: tool.description,
@@ -177,11 +167,11 @@ function buildRequestBody(
     })),
     messages: [
       {
-        role: 'system',
+        role: "system",
         content: SYSTEM_PROMPT,
       },
       {
-        role: 'user',
+        role: "user",
         content: buildUserPrompt(snapshot),
       },
     ],
@@ -203,8 +193,8 @@ function parseToolArguments(rawArguments: string | undefined): JsonValue {
     );
   }
 
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('OpenRouter tool arguments must be a JSON object');
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("OpenRouter tool arguments must be a JSON object");
   }
 
   return parsed as JsonValue;
@@ -226,7 +216,7 @@ function parseToolDecision(
   const toolName = toolCall?.function?.name?.trim();
 
   if (!toolName) {
-    throw new Error('OpenRouter executor response was missing a tool name');
+    throw new Error("OpenRouter executor response was missing a tool name");
   }
 
   if (!toolNames.has(toolName)) {
@@ -244,7 +234,7 @@ function parseModelsPayload(payload: unknown): OpenRouterModelMetadata[] {
     return payload as OpenRouterModelMetadata[];
   }
 
-  if (payload && typeof payload === 'object') {
+  if (payload && typeof payload === "object") {
     const models = (payload as ModelsResponseBody).data;
     return Array.isArray(models) ? models : [];
   }
@@ -252,10 +242,7 @@ function parseModelsPayload(payload: unknown): OpenRouterModelMetadata[] {
   return [];
 }
 
-function validateModelCapabilities(
-  model: string,
-  models: OpenRouterModelMetadata[],
-): void {
+function validateModelCapabilities(model: string, models: OpenRouterModelMetadata[]): void {
   const metadata = models.find((candidate) => candidate.id === model);
 
   if (!metadata) {
@@ -266,14 +253,14 @@ function validateModelCapabilities(
     ? metadata.supported_parameters
     : [];
 
-  const requiredParameters = ['tools', 'tool_choice'];
+  const requiredParameters = ["tools", "tool_choice"];
   const missing = requiredParameters.filter(
     (parameter) => !supportedParameters.includes(parameter),
   );
 
   if (missing.length > 0) {
     throw new Error(
-      `OpenRouter model "${model}" does not support required parameters: ${missing.join(', ')}`,
+      `OpenRouter model "${model}" does not support required parameters: ${missing.join(", ")}`,
     );
   }
 }
@@ -282,7 +269,7 @@ function isNoEndpointsError(response: Response, parsedBody: ParsedResponseBody):
   return (
     response.status === 404 &&
     /No endpoints found that can handle the requested parameters/i.test(
-      parsedBody.rawBody || parsedBody.payload?.error?.message || '',
+      parsedBody.rawBody || parsedBody.payload?.error?.message || "",
     )
   );
 }
@@ -294,8 +281,8 @@ export function createOpenRouterExecutorClient(
   async function ensureToolSupport(): Promise<void> {
     validateClientConfig(config);
 
-    const response = await fetchImpl(`${config.baseUrl.replace(/\/+$/, '')}/models`, {
-      method: 'GET',
+    const response = await fetchImpl(`${config.baseUrl.replace(/\/+$/, "")}/models`, {
+      method: "GET",
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
       },
@@ -346,15 +333,13 @@ export function createOpenRouterExecutorClient(
     let lastStatus: number | null = null;
 
     for (const variant of requestVariants) {
-      const response = await fetchImpl(`${config.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-        method: 'POST',
+      const response = await fetchImpl(`${config.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+        method: "POST",
         headers: {
           Authorization: `Bearer ${config.apiKey}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(
-          buildRequestBody(config, snapshot, tools, variant),
-        ),
+        body: JSON.stringify(buildRequestBody(config, snapshot, tools, variant)),
       });
       const parsedBody = await parseResponseBody(response);
 
@@ -370,20 +355,14 @@ export function createOpenRouterExecutorClient(
       }
 
       if (!parsedBody.payload) {
-        throw new Error('OpenRouter response was not valid JSON: expected a JSON object body');
+        throw new Error("OpenRouter response was not valid JSON: expected a JSON object body");
       }
 
-      return parseToolDecision(
-        parsedBody.payload,
-        new Set(tools.map((tool) => tool.name)),
-      );
+      return parseToolDecision(parsedBody.payload, new Set(tools.map((tool) => tool.name)));
     }
 
     throw new Error(
-      buildHttpErrorMessage(
-        lastParsedBody ?? { payload: null, rawBody: '' },
-        lastStatus ?? 500,
-      ),
+      buildHttpErrorMessage(lastParsedBody ?? { payload: null, rawBody: "" }, lastStatus ?? 500),
     );
   }
 
@@ -391,7 +370,7 @@ export function createOpenRouterExecutorClient(
     ensureToolSupport,
     chooseTool,
     model: config.model,
-    provider: 'openrouter',
+    provider: "openrouter",
   };
 }
 

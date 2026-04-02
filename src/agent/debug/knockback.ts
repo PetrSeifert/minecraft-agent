@@ -1,14 +1,9 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-import { serializeVec3 } from '../utils';
+import { serializeVec3 } from "../utils";
 
-import type {
-  BlockLike,
-  KnockbackDebugger,
-  MinecraftBot,
-  PathingModule,
-} from '../../types';
+import type { BlockLike, KnockbackDebugger, MinecraftBot, PathingModule } from "../../types";
 
 type LooseEmitter = {
   on(event: string, listener: (...args: any[]) => void): void;
@@ -55,14 +50,11 @@ export function createKnockbackDebugger(
     };
   }
 
-  const filePath = path.resolve(options.filePath || 'knockback-debug.log');
+  const filePath = path.resolve(options.filePath || "knockback-debug.log");
   let sampleTicksRemaining = 0;
   let sequence = 0;
 
-  fs.appendFileSync(
-    filePath,
-    `\n# knockback debug session ${new Date().toISOString()}\n`,
-  );
+  fs.appendFileSync(filePath, `\n# knockback debug session ${new Date().toISOString()}\n`);
 
   function snapshot() {
     const feetPosition = bot.entity?.position?.floored?.() ?? null;
@@ -102,79 +94,79 @@ export function createKnockbackDebugger(
 
   function sampleTicks(reason: string, count = 30): void {
     sampleTicksRemaining = Math.max(sampleTicksRemaining, count);
-    write('sample_ticks_start', { count, reason });
+    write("sample_ticks_start", { count, reason });
   }
 
   const pluginBot = bot as MinecraftBot & LooseEmitter;
 
-  bot.on('entityHurt', (entity) => {
+  bot.on("entityHurt", (entity) => {
     if (entity?.id !== bot.entity?.id) {
       return;
     }
 
-    write('self_hurt');
-    sampleTicks('self_hurt', 40);
+    write("self_hurt");
+    sampleTicks("self_hurt", 40);
   });
 
-  bot._client.on('entity_velocity', (packet) => {
+  bot._client.on("entity_velocity", (packet) => {
     if ((packet as { entityId?: number }).entityId !== bot.entity?.id) {
       return;
     }
 
-    write('entity_velocity', { packet });
-    sampleTicks('entity_velocity', 40);
+    write("entity_velocity", { packet });
+    sampleTicks("entity_velocity", 40);
   });
 
-  bot._client.on('position', (packet) => {
-    write('server_position', { packet });
-    sampleTicks('server_position', 40);
+  bot._client.on("position", (packet) => {
+    write("server_position", { packet });
+    sampleTicks("server_position", 40);
   });
 
-  bot._client.on('explosion', (packet) => {
-    write('explosion', { packet });
-    sampleTicks('explosion', 40);
+  bot._client.on("explosion", (packet) => {
+    write("explosion", { packet });
+    sampleTicks("explosion", 40);
   });
 
-  bot.on('forcedMove', () => {
-    write('forced_move');
-    sampleTicks('forced_move', 20);
+  bot.on("forcedMove", () => {
+    write("forced_move");
+    sampleTicks("forced_move", 20);
   });
 
-  pluginBot.on('physicsTick', () => {
+  pluginBot.on("physicsTick", () => {
     if (sampleTicksRemaining <= 0) {
       return;
     }
 
-    write('physics_tick', { remaining: sampleTicksRemaining });
+    write("physics_tick", { remaining: sampleTicksRemaining });
     sampleTicksRemaining -= 1;
   });
 
-  bot.on('move', () => {
+  bot.on("move", () => {
     if (sampleTicksRemaining <= 0) {
       return;
     }
 
-    write('move');
+    write("move");
   });
 
-  pluginBot.on('physicsAnomaly', (details) => {
-    write('physics_anomaly', details);
-    sampleTicks('physics_anomaly', 20);
+  pluginBot.on("physicsAnomaly", (details) => {
+    write("physics_anomaly", details);
+    sampleTicks("physics_anomaly", 20);
   });
 
-  bot.on('kicked', (reason) => {
-    write('kicked', { reason });
+  bot.on("kicked", (reason) => {
+    write("kicked", { reason });
   });
 
-  bot.on('error', (error) => {
-    write('error', { message: error?.message ?? String(error) });
+  bot.on("error", (error) => {
+    write("error", { message: error?.message ?? String(error) });
   });
 
-  bot.on('end', () => {
-    write('end');
+  bot.on("end", () => {
+    write("end");
   });
 
-  write('debug_enabled', { filePath });
+  write("debug_enabled", { filePath });
 
   return {
     enabled: true,

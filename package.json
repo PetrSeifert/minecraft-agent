@@ -2,17 +2,17 @@
   "name": "minecraft-agent",
   "version": "1.0.0",
   "description": "Modular Minecraft agent starter built on Mineflayer",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
   "main": "src/index.ts",
   "scripts": {
     "start": "node --env-file=.env --import tsx src/index.ts",
     "start:example": "node --env-file=.env.example --import tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm test",
+    "check": "vp check",
     "test": "node --import tsx --test test/**/*.test.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "mineflayer": "^4.35.0",
     "mineflayer-pathfinder": "^2.4.5",
@@ -24,9 +24,9 @@
     "typescript": "^5.9.3",
     "vite-plus": "latest"
   },
-  "packageManager": "npm@11.12.1",
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
     "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
-  }
+  },
+  "packageManager": "npm@11.12.1"
 }

@@ -1,6 +1,6 @@
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from "node:events";
 
-import type { StreamEvent } from '../types';
+import type { StreamEvent } from "../types";
 
 export class EventStream extends EventEmitter {
   private buffer: StreamEvent[] = [];
@@ -26,15 +26,13 @@ export class EventStream extends EventEmitter {
       this.buffer.shift();
     }
 
-    this.emit('event', event);
+    this.emit("event", event);
     this.emit(type, event);
     return event;
   }
 
   recent(limit = 20, type: string | null = null): StreamEvent[] {
-    const items = type
-      ? this.buffer.filter((event) => event.type === type)
-      : this.buffer;
+    const items = type ? this.buffer.filter((event) => event.type === type) : this.buffer;
 
     return items.slice(-limit);
   }

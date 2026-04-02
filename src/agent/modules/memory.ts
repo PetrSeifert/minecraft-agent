@@ -1,4 +1,4 @@
-import { isHostileEntity, summarizePayload } from '../utils';
+import { isHostileEntity, summarizePayload } from "../utils";
 
 import type {
   EventStreamLike,
@@ -11,7 +11,7 @@ import type {
   ShortTermSummary,
   StreamEvent,
   WorkingMemoryItem,
-} from '../../types';
+} from "../../types";
 
 const DEFAULT_SUMMARIZATION_INTERVAL_MS = 30_000;
 const SHORT_TERM_EVENT_LIMIT = 100;
@@ -26,7 +26,7 @@ const THREAT_EXPIRY_MS = 15_000;
 const REMINDER_EXPIRY_MS = 5 * 60_000;
 
 type EventSource = EventStreamLike & {
-  on(event: 'event', listener: (event: StreamEvent) => void): void;
+  on(event: "event", listener: (event: StreamEvent) => void): void;
 };
 
 interface NormalizedEventInput {
@@ -59,25 +59,21 @@ function unique<T>(values: T[]): T[] {
   return Array.from(new Set(values));
 }
 
-function eventPayloadObject(
-  payload: unknown,
-): Record<string, unknown> | null {
-  return payload && typeof payload === 'object'
-    ? (payload as Record<string, unknown>)
-    : null;
+function eventPayloadObject(payload: unknown): Record<string, unknown> | null {
+  return payload && typeof payload === "object" ? (payload as Record<string, unknown>) : null;
 }
 
 function eventPayloadText(payload: unknown): string | null {
   const record = eventPayloadObject(payload);
 
   if (!record) {
-    return trimText(typeof payload === 'string' ? payload : null);
+    return trimText(typeof payload === "string" ? payload : null);
   }
 
   return (
-    trimText(typeof record.text === 'string' ? record.text : null) ??
-    trimText(typeof record.message === 'string' ? record.message : null) ??
-    trimText(typeof record.reason === 'string' ? record.reason : null)
+    trimText(typeof record.text === "string" ? record.text : null) ??
+    trimText(typeof record.message === "string" ? record.message : null) ??
+    trimText(typeof record.reason === "string" ? record.reason : null)
   );
 }
 
@@ -89,10 +85,10 @@ function labelFromEntity(payload: unknown): string | null {
   }
 
   return (
-    trimText(typeof record.username === 'string' ? record.username : null) ??
-    trimText(typeof record.name === 'string' ? record.name : null) ??
-    trimText(typeof record.displayName === 'string' ? record.displayName : null) ??
-    trimText(typeof record.type === 'string' ? record.type : null)
+    trimText(typeof record.username === "string" ? record.username : null) ??
+    trimText(typeof record.name === "string" ? record.name : null) ??
+    trimText(typeof record.displayName === "string" ? record.displayName : null) ??
+    trimText(typeof record.type === "string" ? record.type : null)
   );
 }
 
@@ -103,171 +99,168 @@ function rawEventTags(payload: unknown): string[] {
     return [];
   }
 
-  return record.tags.filter((tag): tag is string => typeof tag === 'string');
+  return record.tags.filter((tag): tag is string => typeof tag === "string");
 }
 
 function rawEventPriority(payload: unknown): number | undefined {
   const record = eventPayloadObject(payload);
 
-  return typeof record?.priority === 'number' ? record.priority : undefined;
+  return typeof record?.priority === "number" ? record.priority : undefined;
 }
 
 function actionNameFromEvent(event: ShortTermEvent): string | null {
   const record = eventPayloadObject(event.payload);
-  return trimText(typeof record?.action === 'string' ? record.action : null);
+  return trimText(typeof record?.action === "string" ? record.action : null);
 }
 
 function eventHasTag(event: { tags: string[] }, tag: string): boolean {
   return event.tags.includes(tag);
 }
 
-function normalizeStreamEvent(
-  bot: MinecraftBot,
-  event: StreamEvent,
-): NormalizedEventInput[] {
+function normalizeStreamEvent(bot: MinecraftBot, event: StreamEvent): NormalizedEventInput[] {
   switch (event.type) {
-    case 'chat:public': {
+    case "chat:public": {
       const payload = eventPayloadObject(event.payload);
-      const username = trimText(
-        typeof payload?.username === 'string' ? payload.username : null,
-      );
+      const username = trimText(typeof payload?.username === "string" ? payload.username : null);
       const text = eventPayloadText(event.payload);
 
       if (!text) {
         return [];
       }
 
-      return [{
-        payload: event.payload,
-        priority: 4,
-        sourceEventId: event.id,
-        sourceType: event.type,
-        tags: ['dialogue', 'received', 'chat'],
-        text: username ? `<${username}> ${text}` : text,
-        timestamp: event.timestamp,
-        type: 'dialogue_received',
-      }];
+      return [
+        {
+          payload: event.payload,
+          priority: 4,
+          sourceEventId: event.id,
+          sourceType: event.type,
+          tags: ["dialogue", "received", "chat"],
+          text: username ? `<${username}> ${text}` : text,
+          timestamp: event.timestamp,
+          type: "dialogue_received",
+        },
+      ];
     }
-    case 'chat:server': {
+    case "chat:server": {
       const text = eventPayloadText(event.payload);
 
       if (!text) {
         return [];
       }
 
-      return [{
-        payload: event.payload,
-        priority: 3,
-        sourceEventId: event.id,
-        sourceType: event.type,
-        tags: ['dialogue', 'received', 'server'],
-        text,
-        timestamp: event.timestamp,
-        type: 'dialogue_received',
-      }];
+      return [
+        {
+          payload: event.payload,
+          priority: 3,
+          sourceEventId: event.id,
+          sourceType: event.type,
+          tags: ["dialogue", "received", "server"],
+          text,
+          timestamp: event.timestamp,
+          type: "dialogue_received",
+        },
+      ];
     }
-    case 'chat:send':
-    case 'chat:whisper': {
+    case "chat:send":
+    case "chat:whisper": {
       const payload = eventPayloadObject(event.payload);
-      const username = trimText(
-        typeof payload?.username === 'string' ? payload.username : null,
-      );
+      const username = trimText(typeof payload?.username === "string" ? payload.username : null);
       const text = eventPayloadText(event.payload);
 
       if (!text) {
         return [];
       }
 
-      return [{
-        payload: event.payload,
-        priority: 3,
-        sourceEventId: event.id,
-        sourceType: event.type,
-        tags: [
-          'dialogue',
-          'sent',
-          event.type === 'chat:whisper' ? 'whisper' : 'chat',
-        ],
-        text: username ? `To ${username}: ${text}` : text,
-        timestamp: event.timestamp,
-        type: 'dialogue_sent',
-      }];
+      return [
+        {
+          payload: event.payload,
+          priority: 3,
+          sourceEventId: event.id,
+          sourceType: event.type,
+          tags: ["dialogue", "sent", event.type === "chat:whisper" ? "whisper" : "chat"],
+          text: username ? `To ${username}: ${text}` : text,
+          timestamp: event.timestamp,
+          type: "dialogue_sent",
+        },
+      ];
     }
-    case 'goal:update': {
+    case "goal:update": {
       const payload = eventPayloadObject(event.payload);
-      const goal = trimText(typeof payload?.goal === 'string' ? payload.goal : null);
+      const goal = trimText(typeof payload?.goal === "string" ? payload.goal : null);
 
-      return [{
-        payload: event.payload,
-        priority: 9,
-        sourceEventId: event.id,
-        sourceType: event.type,
-        tags: ['goal'],
-        text: goal ? `Goal updated: ${goal}` : 'Goal cleared',
-        timestamp: event.timestamp,
-        type: 'goal_update',
-      }];
+      return [
+        {
+          payload: event.payload,
+          priority: 9,
+          sourceEventId: event.id,
+          sourceType: event.type,
+          tags: ["goal"],
+          text: goal ? `Goal updated: ${goal}` : "Goal cleared",
+          timestamp: event.timestamp,
+          type: "goal_update",
+        },
+      ];
     }
-    case 'action:start':
-    case 'action:success':
-    case 'action:failure': {
+    case "action:start":
+    case "action:success":
+    case "action:failure": {
       const action = actionNameFromRawPayload(event.payload);
-      const type = event.type.replace(':', '_');
+      const type = event.type.replace(":", "_");
       const statusTag =
-        event.type === 'action:failure'
-          ? 'failure'
-          : event.type === 'action:success'
-            ? 'success'
-            : 'start';
-      const text =
-        eventPayloadText(event.payload) ??
-        `${action ?? 'action'} ${statusTag}`;
+        event.type === "action:failure"
+          ? "failure"
+          : event.type === "action:success"
+            ? "success"
+            : "start";
+      const text = eventPayloadText(event.payload) ?? `${action ?? "action"} ${statusTag}`;
 
-      return [{
-        payload: event.payload,
-        priority:
-          rawEventPriority(event.payload) ??
-          (event.type === 'action:failure'
-            ? 9
-            : event.type === 'action:success'
-              ? 6
-              : 4),
-        sourceEventId: event.id,
-        sourceType: event.type,
-        tags: unique([
-          'action',
-          statusTag,
-          ...(action ? [`action:${action}`] : []),
-          ...rawEventTags(event.payload),
-        ]),
-        text,
-        timestamp: event.timestamp,
-        type,
-      }];
+      return [
+        {
+          payload: event.payload,
+          priority:
+            rawEventPriority(event.payload) ??
+            (event.type === "action:failure" ? 9 : event.type === "action:success" ? 6 : 4),
+          sourceEventId: event.id,
+          sourceType: event.type,
+          tags: unique([
+            "action",
+            statusTag,
+            ...(action ? [`action:${action}`] : []),
+            ...rawEventTags(event.payload),
+          ]),
+          text,
+          timestamp: event.timestamp,
+          type,
+        },
+      ];
     }
-    case 'entity:spawn': {
+    case "entity:spawn": {
       const entityLabel = labelFromEntity(event.payload);
 
-      if (!entityLabel || !isHostileEntity(event.payload as Parameters<typeof isHostileEntity>[0])) {
+      if (
+        !entityLabel ||
+        !isHostileEntity(event.payload as Parameters<typeof isHostileEntity>[0])
+      ) {
         return [];
       }
 
-      return [{
-        payload: event.payload,
-        priority: 8,
-        sourceEventId: event.id,
-        sourceType: event.type,
-        tags: ['observation', 'threat', 'hostile'],
-        text: `Nearby threat spotted: ${entityLabel}`,
-        timestamp: event.timestamp,
-        type: 'observation',
-      }];
+      return [
+        {
+          payload: event.payload,
+          priority: 8,
+          sourceEventId: event.id,
+          sourceType: event.type,
+          tags: ["observation", "threat", "hostile"],
+          text: `Nearby threat spotted: ${entityLabel}`,
+          timestamp: event.timestamp,
+          type: "observation",
+        },
+      ];
     }
-    case 'bot:health': {
+    case "bot:health": {
       const payload = eventPayloadObject(event.payload);
-      const health = typeof payload?.health === 'number' ? payload.health : null;
-      const oxygenLevel =
-        typeof payload?.oxygenLevel === 'number' ? payload.oxygenLevel : null;
+      const health = typeof payload?.health === "number" ? payload.health : null;
+      const oxygenLevel = typeof payload?.oxygenLevel === "number" ? payload.oxygenLevel : null;
       const events: NormalizedEventInput[] = [];
 
       if (health !== null && health <= 8) {
@@ -276,10 +269,10 @@ function normalizeStreamEvent(
           priority: 9,
           sourceEventId: event.id,
           sourceType: event.type,
-          tags: ['observation', 'hazard', 'health'],
+          tags: ["observation", "hazard", "health"],
           text: `Low health: ${health}`,
           timestamp: event.timestamp,
-          type: 'observation',
+          type: "observation",
         });
       }
 
@@ -289,57 +282,63 @@ function normalizeStreamEvent(
           priority: 9,
           sourceEventId: event.id,
           sourceType: event.type,
-          tags: ['observation', 'hazard', 'oxygen'],
+          tags: ["observation", "hazard", "oxygen"],
           text: `Low oxygen: ${oxygenLevel}`,
           timestamp: event.timestamp,
-          type: 'observation',
+          type: "observation",
         });
       }
 
       return events;
     }
-    case 'bot:death':
-      return [{
-        payload: event.payload,
-        priority: 10,
-        sourceEventId: event.id,
-        sourceType: event.type,
-        tags: ['observation', 'failure', 'death'],
-        text: 'Bot died',
-        timestamp: event.timestamp,
-        type: 'observation',
-      }];
-    case 'safety:self_hurt_stabilize':
-      return [{
-        payload: event.payload,
-        priority: 8,
-        sourceEventId: event.id,
-        sourceType: event.type,
-        tags: ['observation', 'hazard', 'damage'],
-        text: 'Took damage and stabilized movement',
-        timestamp: event.timestamp,
-        type: 'observation',
-      }];
-    case 'executor:success': {
+    case "bot:death":
+      return [
+        {
+          payload: event.payload,
+          priority: 10,
+          sourceEventId: event.id,
+          sourceType: event.type,
+          tags: ["observation", "failure", "death"],
+          text: "Bot died",
+          timestamp: event.timestamp,
+          type: "observation",
+        },
+      ];
+    case "safety:self_hurt_stabilize":
+      return [
+        {
+          payload: event.payload,
+          priority: 8,
+          sourceEventId: event.id,
+          sourceType: event.type,
+          tags: ["observation", "hazard", "damage"],
+          text: "Took damage and stabilized movement",
+          timestamp: event.timestamp,
+          type: "observation",
+        },
+      ];
+    case "executor:success": {
       const payload = eventPayloadObject(event.payload);
-      const outcome = trimText(typeof payload?.outcome === 'string' ? payload.outcome : null);
-      const tool = trimText(typeof payload?.tool === 'string' ? payload.tool : null);
+      const outcome = trimText(typeof payload?.outcome === "string" ? payload.outcome : null);
+      const tool = trimText(typeof payload?.tool === "string" ? payload.tool : null);
       const text = formatExecutorObservationText(event.payload);
 
-      if (outcome !== 'observe' || !tool || !text) {
+      if (outcome !== "observe" || !tool || !text) {
         return [];
       }
 
-      return [{
-        payload: event.payload,
-        priority: 6,
-        sourceEventId: event.id,
-        sourceType: event.type,
-        tags: ['observation', 'executor', 'result', 'success', `tool:${tool}`],
-        text,
-        timestamp: event.timestamp,
-        type: 'observation',
-      }];
+      return [
+        {
+          payload: event.payload,
+          priority: 6,
+          sourceEventId: event.id,
+          sourceType: event.type,
+          tags: ["observation", "executor", "result", "success", `tool:${tool}`],
+          text,
+          timestamp: event.timestamp,
+          type: "observation",
+        },
+      ];
     }
     default:
       return [];
@@ -348,7 +347,7 @@ function normalizeStreamEvent(
 
 function actionNameFromRawPayload(payload: unknown): string | null {
   const record = eventPayloadObject(payload);
-  return trimText(typeof record?.action === 'string' ? record.action : null);
+  return trimText(typeof record?.action === "string" ? record.action : null);
 }
 
 function formatExecutorObservationText(payload: unknown): string | null {
@@ -358,7 +357,7 @@ function formatExecutorObservationText(payload: unknown): string | null {
     return null;
   }
 
-  const tool = trimText(typeof record?.tool === 'string' ? record.tool : null);
+  const tool = trimText(typeof record?.tool === "string" ? record.tool : null);
 
   if (!tool) {
     return null;
@@ -373,39 +372,30 @@ function formatExecutorObservationText(payload: unknown): string | null {
           }
 
           const formattedValue =
-            typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+            typeof value === "string" || typeof value === "number" || typeof value === "boolean"
               ? String(value)
               : summarizePayload(value);
 
           return formattedValue == null ? null : `${key}=${formattedValue}`;
         })
         .filter((value): value is string => Boolean(value))
-        .join(', ')
-    : '';
+        .join(", ")
+    : "";
 
   const resultSummary = summarizePayload(record.result);
   const resultText =
-    resultSummary != null
-      ? String(resultSummary)
-      : record.result === null
-        ? 'not found'
-        : null;
+    resultSummary != null ? String(resultSummary) : record.result === null ? "not found" : null;
 
   if (!resultText) {
     return null;
   }
 
-  return `${tool}${argsText ? `(${argsText})` : ''} -> ${resultText}`;
+  return `${tool}${argsText ? `(${argsText})` : ""} -> ${resultText}`;
 }
 
-function buildSummaryText(
-  events: ShortTermEvent[],
-  currentGoal: string | null,
-): string {
+function buildSummaryText(events: ShortTermEvent[], currentGoal: string | null): string {
   const sections: string[] = [];
-  const goalEvent = [...events]
-    .reverse()
-    .find((event) => event.type === 'goal_update');
+  const goalEvent = [...events].reverse().find((event) => event.type === "goal_update");
 
   if (goalEvent) {
     sections.push(goalEvent.text);
@@ -414,59 +404,62 @@ function buildSummaryText(
   }
 
   const failures = events
-    .filter((event) => event.type === 'action_failure' || eventHasTag(event, 'failure'))
+    .filter((event) => event.type === "action_failure" || eventHasTag(event, "failure"))
     .slice(-2)
     .map((event) => event.text);
 
   if (failures.length > 0) {
-    sections.push(`Failures: ${failures.join('; ')}`);
+    sections.push(`Failures: ${failures.join("; ")}`);
   }
 
   const successes = events
-    .filter((event) => event.type === 'action_success')
+    .filter((event) => event.type === "action_success")
     .slice(-2)
     .map((event) => event.text);
 
   if (successes.length > 0) {
-    sections.push(`Successes: ${successes.join('; ')}`);
+    sections.push(`Successes: ${successes.join("; ")}`);
   }
 
   const results = events
-    .filter((event) => event.type !== 'action_success' && eventHasTag(event, 'result'))
+    .filter((event) => event.type !== "action_success" && eventHasTag(event, "result"))
     .slice(-2)
     .map((event) => event.text);
 
   if (results.length > 0) {
-    sections.push(`Results: ${results.join('; ')}`);
+    sections.push(`Results: ${results.join("; ")}`);
   }
 
   const observations = events
     .filter(
       (event) =>
-        event.type === 'observation' &&
-        (eventHasTag(event, 'threat') || eventHasTag(event, 'hazard')),
+        event.type === "observation" &&
+        (eventHasTag(event, "threat") || eventHasTag(event, "hazard")),
     )
     .slice(-2)
     .map((event) => event.text);
 
   if (observations.length > 0) {
-    sections.push(`Observations: ${observations.join('; ')}`);
+    sections.push(`Observations: ${observations.join("; ")}`);
   }
 
   const dialogue = events
-    .filter((event) => event.type === 'dialogue_received')
+    .filter((event) => event.type === "dialogue_received")
     .slice(-2)
     .map((event) => event.text);
 
   if (dialogue.length > 0) {
-    sections.push(`Dialogue: ${dialogue.join('; ')}`);
+    sections.push(`Dialogue: ${dialogue.join("; ")}`);
   }
 
   if (sections.length > 0) {
-    return sections.join(' | ');
+    return sections.join(" | ");
   }
 
-  return events.slice(-3).map((event) => event.text).join(' | ');
+  return events
+    .slice(-3)
+    .map((event) => event.text)
+    .join(" | ");
 }
 
 function buildThreatMemoryItem(
@@ -477,8 +470,8 @@ function buildThreatMemoryItem(
     return {
       expiresAt: toTimestamp(nowMs + THREAT_EXPIRY_MS),
       priority: 10,
-      tags: ['hazard', 'lava'],
-      text: 'Hazard nearby: in lava',
+      tags: ["hazard", "lava"],
+      text: "Hazard nearby: in lava",
       timestamp: toTimestamp(nowMs),
     };
   }
@@ -487,8 +480,8 @@ function buildThreatMemoryItem(
     return {
       expiresAt: toTimestamp(nowMs + THREAT_EXPIRY_MS),
       priority: 10,
-      tags: ['hazard', 'fire'],
-      text: 'Hazard nearby: on fire',
+      tags: ["hazard", "fire"],
+      text: "Hazard nearby: on fire",
       timestamp: toTimestamp(nowMs),
     };
   }
@@ -497,18 +490,14 @@ function buildThreatMemoryItem(
     return {
       expiresAt: toTimestamp(nowMs + THREAT_EXPIRY_MS),
       priority: 10,
-      tags: ['hazard', 'drowning'],
-      text: 'Hazard nearby: drowning',
+      tags: ["hazard", "drowning"],
+      text: "Hazard nearby: drowning",
       timestamp: toTimestamp(nowMs),
     };
   }
 
   const threat = safetyStatus.nearestThreat;
-  const threatLabel =
-    threat?.username ??
-    threat?.name ??
-    threat?.displayName ??
-    threat?.type;
+  const threatLabel = threat?.username ?? threat?.name ?? threat?.displayName ?? threat?.type;
 
   if (!threatLabel) {
     return null;
@@ -517,7 +506,7 @@ function buildThreatMemoryItem(
   return {
     expiresAt: toTimestamp(nowMs + THREAT_EXPIRY_MS),
     priority: 9,
-    tags: ['threat'],
+    tags: ["threat"],
     text: `Nearby threat: ${threatLabel}`,
     timestamp: toTimestamp(nowMs),
   };
@@ -535,7 +524,7 @@ function buildWorkingMemory(
   if (currentGoal) {
     candidates.push({
       priority: 10,
-      tags: ['goal'],
+      tags: ["goal"],
       text: currentGoal,
       timestamp: toTimestamp(nowMs),
     });
@@ -546,30 +535,27 @@ function buildWorkingMemory(
   for (const event of events) {
     const action = actionNameFromEvent(event);
 
-    if (
-      action &&
-      (event.type === 'action_success' || event.type === 'action_failure')
-    ) {
+    if (action && (event.type === "action_success" || event.type === "action_failure")) {
       latestOutcomes.set(action, event);
     }
   }
 
   const recentFailures = Array.from(latestOutcomes.values())
-    .filter((event) => event.type === 'action_failure')
+    .filter((event) => event.type === "action_failure")
     .sort((left, right) => right.timestamp.localeCompare(left.timestamp))
     .slice(0, RECENT_FAILURE_LIMIT);
 
   for (const event of recentFailures) {
     candidates.push({
       priority: event.priority ?? 9,
-      tags: unique(['failure', ...event.tags]),
+      tags: unique(["failure", ...event.tags]),
       text: event.text,
       timestamp: event.timestamp,
     });
   }
 
   const recentSuccesses = events
-    .filter((event) => event.type === 'action_success')
+    .filter((event) => event.type === "action_success")
     .slice(-RECENT_SUCCESS_LIMIT)
     .reverse();
 
@@ -579,14 +565,14 @@ function buildWorkingMemory(
     candidates.push({
       expiresAt: toTimestamp(eventTimestampMs + ACTION_RESULT_EXPIRY_MS),
       priority: event.priority ?? 6,
-      tags: unique(['result', ...event.tags]),
+      tags: unique(["result", ...event.tags]),
       text: event.text,
       timestamp: event.timestamp,
     });
   }
 
   const recentResults = events
-    .filter((event) => event.type !== 'action_success' && eventHasTag(event, 'result'))
+    .filter((event) => event.type !== "action_success" && eventHasTag(event, "result"))
     .slice(-RECENT_SUCCESS_LIMIT)
     .reverse();
 
@@ -596,24 +582,21 @@ function buildWorkingMemory(
     candidates.push({
       expiresAt: toTimestamp(eventTimestampMs + ACTION_RESULT_EXPIRY_MS),
       priority: event.priority ?? 6,
-      tags: unique(['result', ...event.tags]),
+      tags: unique(["result", ...event.tags]),
       text: event.text,
       timestamp: event.timestamp,
     });
   }
 
   const recentDialogue = events
-    .filter(
-      (event) =>
-        event.type === 'dialogue_received' || event.type === 'dialogue_sent',
-    )
+    .filter((event) => event.type === "dialogue_received" || event.type === "dialogue_sent")
     .slice(-RECENT_DIALOGUE_LIMIT)
     .reverse();
 
   for (const event of recentDialogue) {
     candidates.push({
       priority: event.priority ?? 4,
-      tags: unique(['dialogue', ...event.tags]),
+      tags: unique(["dialogue", ...event.tags]),
       text: event.text,
       timestamp: event.timestamp,
     });
@@ -631,7 +614,7 @@ function buildWorkingMemory(
     candidates.push({
       expiresAt: toTimestamp(summaryTimestampMs + REMINDER_EXPIRY_MS),
       priority: 5,
-      tags: unique(['reminder', 'summary', ...summary.tags]),
+      tags: unique(["reminder", "summary", ...summary.tags]),
       text: `Reminder: ${summary.text}`,
       timestamp: summary.timestamp,
     });
@@ -640,14 +623,11 @@ function buildWorkingMemory(
   const deduped = new Map<string, WorkingMemoryItem>();
 
   for (const candidate of candidates) {
-    if (
-      candidate.expiresAt &&
-      Date.parse(candidate.expiresAt) <= nowMs
-    ) {
+    if (candidate.expiresAt && Date.parse(candidate.expiresAt) <= nowMs) {
       continue;
     }
 
-    const key = `${candidate.text.toLowerCase()}|${candidate.tags.slice().sort().join(',')}`;
+    const key = `${candidate.text.toLowerCase()}|${candidate.tags.slice().sort().join(",")}`;
     const existing = deduped.get(key);
 
     if (!existing) {
@@ -784,13 +764,13 @@ export function createMemoryModule(
     }
 
     currentGoal = nextGoal;
-    events.push('goal:update', { goal: currentGoal });
+    events.push("goal:update", { goal: currentGoal });
     refreshWorkingMemory();
 
     return { goal: currentGoal };
   }
 
-  events.on('event', (event) => {
+  events.on("event", (event) => {
     for (const normalizedEvent of normalizeStreamEvent(bot, event)) {
       recordEvent(normalizedEvent);
     }
@@ -802,7 +782,7 @@ export function createMemoryModule(
     }, summarizationIntervalMs);
   }
 
-  bot.on('end', () => {
+  bot.on("end", () => {
     if (summaryTimer) {
       clearInterval(summaryTimer);
       summaryTimer = null;

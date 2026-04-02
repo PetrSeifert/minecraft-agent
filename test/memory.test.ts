@@ -1,20 +1,17 @@
-import assert from 'node:assert/strict';
-import { EventEmitter } from 'node:events';
-import test from 'node:test';
+import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
+import test from "node:test";
 
-import { EventStream } from '../src/agent/eventStream';
-import { instrumentAsyncOperation } from '../src/agent/operationEvents';
-import {
-  createMemoryModule,
-  memoryInternals,
-} from '../src/agent/modules/memory';
+import { EventStream } from "../src/agent/eventStream";
+import { instrumentAsyncOperation } from "../src/agent/operationEvents";
+import { createMemoryModule, memoryInternals } from "../src/agent/modules/memory";
 
 import type {
   SafetyStatus,
   SerializedEntity,
   ShortTermEvent,
   ShortTermSummary,
-} from '../src/types';
+} from "../src/types";
 
 function createMemoryBot() {
   return Object.assign(new EventEmitter(), {
@@ -23,7 +20,7 @@ function createMemoryBot() {
       metadata: [],
       position: null,
     },
-    username: 'TestBot',
+    username: "TestBot",
   });
 }
 
@@ -60,9 +57,7 @@ function createSafetyStatus(overrides: Partial<SafetyStatus> = {}): SafetyStatus
   };
 }
 
-function createSerializedEntity(
-  overrides: Partial<SerializedEntity> = {},
-): SerializedEntity {
+function createSerializedEntity(overrides: Partial<SerializedEntity> = {}): SerializedEntity {
   return {
     displayName: null,
     height: null,
@@ -79,7 +74,7 @@ function createSerializedEntity(
 
 function makeEvent(
   id: number,
-  type: ShortTermEvent['type'],
+  type: ShortTermEvent["type"],
   text: string,
   options: {
     payload?: unknown;
@@ -96,15 +91,15 @@ function makeEvent(
     sourceType: null,
     tags: options.tags ?? [],
     text,
-    timestamp: options.timestamp ?? `2026-01-01T00:00:${String(id).padStart(2, '0')}.000Z`,
+    timestamp: options.timestamp ?? `2026-01-01T00:00:${String(id).padStart(2, "0")}.000Z`,
     type,
   };
 }
 
 function makeSummary(
   text: string,
-  timestamp = '2026-01-01T00:01:00.000Z',
-  tags: string[] = ['summary'],
+  timestamp = "2026-01-01T00:01:00.000Z",
+  tags: string[] = ["summary"],
 ): ShortTermSummary {
   return {
     endEventId: 10,
@@ -115,153 +110,178 @@ function makeSummary(
   };
 }
 
-test('memory normalizes chat events and goal updates', () => {
+test("memory normalizes chat events and goal updates", () => {
   const bot = createMemoryBot();
   const events = new EventStream();
-  const memory = createMemoryModule(bot as never, {
-    events,
-    safety: {
-      status: () => createSafetyStatus(),
-    } as never,
-  }, {
-    autoSummarize: false,
-  });
+  const memory = createMemoryModule(
+    bot as never,
+    {
+      events,
+      safety: {
+        status: () => createSafetyStatus(),
+      } as never,
+    },
+    {
+      autoSummarize: false,
+    },
+  );
 
-  memory.setGoal('Find shelter');
-  events.push('chat:public', { text: 'hello there', username: 'Alex' });
+  memory.setGoal("Find shelter");
+  events.push("chat:public", { text: "hello there", username: "Alex" });
 
   const rawTypes = events.recent(10).map((event) => event.type);
   const shortTerm = memory.state().shortTerm.events;
 
-  assert.ok(rawTypes.includes('goal:update'));
-  assert.equal(shortTerm[0]?.type, 'goal_update');
-  assert.equal(shortTerm[1]?.type, 'dialogue_received');
-  assert.equal(shortTerm[1]?.text, '<Alex> hello there');
+  assert.ok(rawTypes.includes("goal:update"));
+  assert.equal(shortTerm[0]?.type, "goal_update");
+  assert.equal(shortTerm[1]?.type, "dialogue_received");
+  assert.equal(shortTerm[1]?.text, "<Alex> hello there");
 });
 
-test('instrumented async operations emit normalized action lifecycle events', async () => {
+test("instrumented async operations emit normalized action lifecycle events", async () => {
   const bot = createMemoryBot();
   const events = new EventStream();
-  const memory = createMemoryModule(bot as never, {
+  const memory = createMemoryModule(
+    bot as never,
+    {
+      events,
+      safety: {
+        status: () => createSafetyStatus(),
+      } as never,
+    },
+    {
+      autoSummarize: false,
+    },
+  );
+
+  const operation = instrumentAsyncOperation<[string, boolean?], string>(
     events,
-    safety: {
-      status: () => createSafetyStatus(),
-    } as never,
-  }, {
-    autoSummarize: false,
-  });
+    {
+      action: "test.operation",
+      failure: ([label], error) => ({
+        priority: 8,
+        tags: ["test"],
+        text: `Failed ${label}: ${error instanceof Error ? error.message : String(error)}`,
+      }),
+      start: ([label]) => ({
+        priority: 4,
+        tags: ["test"],
+        text: `Starting ${label}`,
+      }),
+      success: ([label]) => ({
+        priority: 6,
+        tags: ["test"],
+        text: `Finished ${label}`,
+      }),
+    },
+    async (label: string, shouldFail = false) => {
+      if (shouldFail) {
+        throw new Error("boom");
+      }
 
-  const operation = instrumentAsyncOperation<[string, boolean?], string>(events, {
-    action: 'test.operation',
-    failure: ([label], error) => ({
-      priority: 8,
-      tags: ['test'],
-      text: `Failed ${label}: ${error instanceof Error ? error.message : String(error)}`,
-    }),
-    start: ([label]) => ({
-      priority: 4,
-      tags: ['test'],
-      text: `Starting ${label}`,
-    }),
-    success: ([label]) => ({
-      priority: 6,
-      tags: ['test'],
-      text: `Finished ${label}`,
-    }),
-  }, async (label: string, shouldFail = false) => {
-    if (shouldFail) {
-      throw new Error('boom');
-    }
+      return label.toUpperCase();
+    },
+  );
 
-    return label.toUpperCase();
-  });
-
-  await operation('first');
-  await assert.rejects(() => operation('second', true), /boom/);
+  await operation("first");
+  await assert.rejects(() => operation("second", true), /boom/);
 
   const shortTerm = memory.state().shortTerm.events;
   const eventTypes = shortTerm.map((event) => event.type);
 
   assert.deepEqual(eventTypes, [
-    'action_start',
-    'action_success',
-    'action_start',
-    'action_failure',
+    "action_start",
+    "action_success",
+    "action_start",
+    "action_failure",
   ]);
-  assert.equal(shortTerm[3]?.text, 'Failed second: boom');
+  assert.equal(shortTerm[3]?.text, "Failed second: boom");
 });
 
-test('executor observation results are retained as short-term facts and working-memory results', () => {
+test("executor observation results are retained as short-term facts and working-memory results", () => {
   const bot = createMemoryBot();
   const events = new EventStream();
-  const memory = createMemoryModule(bot as never, {
-    events,
-    safety: {
-      status: () => createSafetyStatus(),
-    } as never,
-  }, {
-    autoSummarize: false,
-  });
-
-  events.push('executor:success', {
-    args: {
-      name: 'oak_log',
+  const memory = createMemoryModule(
+    bot as never,
+    {
+      events,
+      safety: {
+        status: () => createSafetyStatus(),
+      } as never,
     },
-    outcome: 'observe',
+    {
+      autoSummarize: false,
+    },
+  );
+
+  events.push("executor:success", {
+    args: {
+      name: "oak_log",
+    },
+    outcome: "observe",
     result: {
-      name: 'oak_log',
+      name: "oak_log",
       position: { x: 3, y: 64, z: 1 },
     },
-    tool: 'find_block_by_name',
+    tool: "find_block_by_name",
   });
 
   const state = memory.state();
   const observation = state.shortTerm.events[0];
 
-  assert.equal(observation?.type, 'observation');
-  assert.equal(observation?.text, 'find_block_by_name(name=oak_log) -> oak_log @ 3,64,1');
-  assert.ok(observation?.tags.includes('executor'));
-  assert.ok(observation?.tags.includes('result'));
+  assert.equal(observation?.type, "observation");
+  assert.equal(observation?.text, "find_block_by_name(name=oak_log) -> oak_log @ 3,64,1");
+  assert.ok(observation?.tags.includes("executor"));
+  assert.ok(observation?.tags.includes("result"));
   assert.ok(
-    state.working.some((item) => item.text === 'find_block_by_name(name=oak_log) -> oak_log @ 3,64,1'),
+    state.working.some(
+      (item) => item.text === "find_block_by_name(name=oak_log) -> oak_log @ 3,64,1",
+    ),
   );
 
   const summary = memory.summarizeNow();
-  assert.match(summary?.text ?? '', /Results: find_block_by_name\(name=oak_log\) -> oak_log @ 3,64,1/);
+  assert.match(
+    summary?.text ?? "",
+    /Results: find_block_by_name\(name=oak_log\) -> oak_log @ 3,64,1/,
+  );
 });
 
-test('summaries only compact unsummarized events and preserve important facts', () => {
+test("summaries only compact unsummarized events and preserve important facts", () => {
   const bot = createMemoryBot();
   const events = new EventStream();
-  const memory = createMemoryModule(bot as never, {
-    events,
-    safety: {
-      status: () =>
-        createSafetyStatus({
-          nearestThreat: createSerializedEntity({
-            name: 'zombie',
+  const memory = createMemoryModule(
+    bot as never,
+    {
+      events,
+      safety: {
+        status: () =>
+          createSafetyStatus({
+            nearestThreat: createSerializedEntity({
+              name: "zombie",
+            }),
           }),
-        }),
-    } as never,
-  }, {
-    autoSummarize: false,
-  });
+      } as never,
+    },
+    {
+      autoSummarize: false,
+    },
+  );
 
-  memory.setGoal('Build shelter');
-  events.push('chat:public', { text: 'Night is coming', username: 'Alex' });
-  events.push('action:success', {
-    action: 'actions.craftItem',
-    tags: ['actions', 'craft'],
-    text: 'Crafted 8 planks',
+  memory.setGoal("Build shelter");
+  events.push("chat:public", { text: "Night is coming", username: "Alex" });
+  events.push("action:success", {
+    action: "actions.craftItem",
+    tags: ["actions", "craft"],
+    text: "Crafted 8 planks",
   });
-  events.push('action:failure', {
-    action: 'actions.placeBlockAt',
-    tags: ['actions', 'place'],
-    text: 'Failed to place oak_planks: occupied',
+  events.push("action:failure", {
+    action: "actions.placeBlockAt",
+    tags: ["actions", "place"],
+    text: "Failed to place oak_planks: occupied",
   });
-  events.push('entity:spawn', {
-    name: 'zombie',
-    type: 'mob',
+  events.push("entity:spawn", {
+    name: "zombie",
+    type: "mob",
   });
 
   const firstSummary = memory.summarizeNow();
@@ -274,10 +294,10 @@ test('summaries only compact unsummarized events and preserve important facts', 
   assert.match(firstSummary!.text, /Observations:/);
   assert.equal(memory.summarizeNow(), null);
 
-  events.push('action:success', {
-    action: 'pathing.goto',
-    tags: ['pathing', 'movement'],
-    text: 'Reached 10,64,10 within range 0',
+  events.push("action:success", {
+    action: "pathing.goto",
+    tags: ["pathing", "movement"],
+    text: "Reached 10,64,10 within range 0",
   });
 
   const secondSummary = memory.summarizeNow();
@@ -286,83 +306,71 @@ test('summaries only compact unsummarized events and preserve important facts', 
   assert.ok((secondSummary?.startEventId ?? 0) > (firstSummary?.endEventId ?? 0));
 });
 
-test('working memory stays capped and prioritizes failures above routine observations', () => {
-  const nowMs = Date.parse('2026-01-01T00:10:00.000Z');
+test("working memory stays capped and prioritizes failures above routine observations", () => {
+  const nowMs = Date.parse("2026-01-01T00:10:00.000Z");
   const events = Array.from({ length: 14 }, (_value, index) =>
-    makeEvent(index + 1, 'dialogue_received', `dialogue ${index + 1}`, {
+    makeEvent(index + 1, "dialogue_received", `dialogue ${index + 1}`, {
       priority: 3,
-      tags: ['dialogue'],
+      tags: ["dialogue"],
     }),
   );
 
   events.push(
-    makeEvent(20, 'observation', 'Nearby threat spotted: zombie', {
+    makeEvent(20, "observation", "Nearby threat spotted: zombie", {
       priority: 5,
-      tags: ['observation', 'threat'],
+      tags: ["observation", "threat"],
     }),
   );
   events.push(
-    makeEvent(21, 'action_failure', 'Failed to mine oak_log: out of reach', {
-      payload: { action: 'actions.mineBlockAt' },
+    makeEvent(21, "action_failure", "Failed to mine oak_log: out of reach", {
+      payload: { action: "actions.mineBlockAt" },
       priority: 9,
-      tags: ['action', 'failure'],
+      tags: ["action", "failure"],
     }),
   );
 
-  const working = memoryInternals.buildWorkingMemory(
-    nowMs,
-    null,
-    events,
-    [],
-    createSafetyStatus(),
-  );
+  const working = memoryInternals.buildWorkingMemory(nowMs, null, events, [], createSafetyStatus());
 
   assert.ok(working.length <= 12);
-  assert.ok(working[0]?.tags.includes('failure'));
-  assert.ok(working.some((item) => item.text === 'Failed to mine oak_log: out of reach'));
+  assert.ok(working[0]?.tags.includes("failure"));
+  assert.ok(working.some((item) => item.text === "Failed to mine oak_log: out of reach"));
 });
 
-test('working memory drops expired transient items, dedupes reminders, and reflects active threats', () => {
-  const baseNowMs = Date.parse('2026-01-01T00:00:00.000Z');
-  const successEvent = makeEvent(1, 'action_success', 'Crafted 4 planks', {
-    payload: { action: 'actions.craftItem' },
+test("working memory drops expired transient items, dedupes reminders, and reflects active threats", () => {
+  const baseNowMs = Date.parse("2026-01-01T00:00:00.000Z");
+  const successEvent = makeEvent(1, "action_success", "Crafted 4 planks", {
+    payload: { action: "actions.craftItem" },
     priority: 6,
-    tags: ['action', 'success'],
-    timestamp: '2026-01-01T00:00:00.000Z',
+    tags: ["action", "success"],
+    timestamp: "2026-01-01T00:00:00.000Z",
   });
-  const summaries = [
-    makeSummary('Keep building shelter'),
-    makeSummary('Keep building shelter'),
-  ];
+  const summaries = [makeSummary("Keep building shelter"), makeSummary("Keep building shelter")];
 
   const activeThreatWorking = memoryInternals.buildWorkingMemory(
     baseNowMs,
-    'Build shelter',
+    "Build shelter",
     [successEvent],
     summaries,
     createSafetyStatus({
       nearestThreat: createSerializedEntity({
-        name: 'zombie',
+        name: "zombie",
       }),
     }),
   );
 
-  assert.ok(activeThreatWorking.some((item) => item.text === 'Build shelter'));
-  assert.ok(activeThreatWorking.some((item) => item.text === 'Crafted 4 planks'));
-  assert.equal(
-    activeThreatWorking.filter((item) => item.tags.includes('summary')).length,
-    1,
-  );
-  assert.ok(activeThreatWorking.some((item) => item.text === 'Nearby threat: zombie'));
+  assert.ok(activeThreatWorking.some((item) => item.text === "Build shelter"));
+  assert.ok(activeThreatWorking.some((item) => item.text === "Crafted 4 planks"));
+  assert.equal(activeThreatWorking.filter((item) => item.tags.includes("summary")).length, 1);
+  assert.ok(activeThreatWorking.some((item) => item.text === "Nearby threat: zombie"));
 
   const staleWorking = memoryInternals.buildWorkingMemory(
     baseNowMs + 91_000,
-    'Build shelter',
+    "Build shelter",
     [successEvent],
     summaries,
     createSafetyStatus(),
   );
 
-  assert.ok(!staleWorking.some((item) => item.text === 'Crafted 4 planks'));
-  assert.ok(!staleWorking.some((item) => item.text === 'Nearby threat: zombie'));
+  assert.ok(!staleWorking.some((item) => item.text === "Crafted 4 planks"));
+  assert.ok(!staleWorking.some((item) => item.text === "Nearby threat: zombie"));
 });

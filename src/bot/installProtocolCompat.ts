@@ -1,6 +1,6 @@
-import { Vec3 } from 'vec3';
+import { Vec3 } from "vec3";
 
-import type { MinecraftBot } from '../types';
+import type { MinecraftBot } from "../types";
 
 function hasNumericVelocity(packet: unknown): packet is {
   entityId: number;
@@ -10,7 +10,7 @@ function hasNumericVelocity(packet: unknown): packet is {
     z: number;
   };
 } {
-  if (!packet || typeof packet !== 'object') {
+  if (!packet || typeof packet !== "object") {
     return false;
   }
 
@@ -27,8 +27,8 @@ function hasNumericVelocity(packet: unknown): packet is {
 }
 
 export function installProtocolCompat(bot: MinecraftBot): void {
-  bot._client.on('entity_velocity', (packet) => {
-    if ((bot as any).supportFeature('entityVelocityIsLpVec3')) {
+  bot._client.on("entity_velocity", (packet) => {
+    if ((bot as any).supportFeature("entityVelocityIsLpVec3")) {
       return;
     }
 
@@ -42,8 +42,6 @@ export function installProtocolCompat(bot: MinecraftBot): void {
       return;
     }
 
-    entity.velocity.update(
-      new Vec3(packet.velocity.x, packet.velocity.y, packet.velocity.z),
-    );
+    entity.velocity.update(new Vec3(packet.velocity.x, packet.velocity.y, packet.velocity.z));
   });
 }

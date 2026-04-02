@@ -1,1919 +1,2605 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MineOps // Agent Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-:root {
-  --bg-deep: #060a10;
-  --bg-base: #0b1018;
-  --bg-surface: #111923;
-  --bg-card: #162030;
-  --bg-card-hover: #1a2840;
-  --border: #1e2e42;
-  --border-bright: #2a4060;
-  --text-primary: #d8dee8;
-  --text-secondary: #6a7a90;
-  --text-muted: #3e5068;
-  --accent-green: #2ddb72;
-  --accent-green-dim: #1a7a40;
-  --accent-amber: #f0a830;
-  --accent-amber-dim: #7a5518;
-  --accent-red: #f04848;
-  --accent-red-dim: #7a2424;
-  --accent-blue: #4a9eff;
-  --accent-blue-dim: #1e4a80;
-  --accent-purple: #a06eff;
-  --accent-purple-dim: #4a2e80;
-  --accent-cyan: #40e0d0;
-  --font-display: 'Silkscreen', cursive;
-  --font-mono: 'JetBrains Mono', monospace;
-  --radius: 6px;
-  --radius-lg: 10px;
-}
-
-html, body {
-  height: 100%;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--text-primary);
-  background: var(--bg-deep);
-  overflow: hidden;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--border-bright); }
-
-/* Layout */
-#app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-}
-
-/* Top bar */
-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 20px;
-  background: var(--bg-base);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  position: relative;
-  overflow: hidden;
-}
-
-header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--accent-green), var(--accent-blue), var(--accent-purple), transparent);
-  opacity: 0.6;
-}
-
-.logo {
-  font-family: var(--font-display);
-  font-size: 16px;
-  letter-spacing: 1px;
-  color: var(--accent-green);
-  text-transform: uppercase;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.logo span { color: var(--text-muted); }
-
-.session-info {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-left: auto;
-}
-
-.session-info .tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  flex-shrink: 0;
-}
-.status-dot.green { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
-.status-dot.amber { background: var(--accent-amber); box-shadow: 0 0 6px var(--accent-amber); }
-.status-dot.red { background: var(--accent-red); box-shadow: 0 0 6px var(--accent-red); }
-
-/* Tabs */
-nav {
-  display: flex;
-  gap: 0;
-  background: var(--bg-base);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  padding: 0 12px;
-}
-
-nav button {
-  font-family: var(--font-display);
-  font-size: 11px;
-  letter-spacing: 0.5px;
-  padding: 10px 18px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-  text-transform: uppercase;
-}
-
-nav button:hover { color: var(--text-secondary); }
-
-nav button.active {
-  color: var(--accent-green);
-  border-bottom-color: var(--accent-green);
-}
-
-/* Main content */
-main {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px 20px;
-}
-
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-
-/* Cards */
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  margin-bottom: 12px;
-}
-
-.card-title {
-  font-family: var(--font-display);
-  font-size: 11px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.card-title .indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-}
-
-/* Grid layouts */
-.grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.grid-3 {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-}
-
-.grid-4 {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-
-@media (max-width: 1200px) {
-  .grid-4 { grid-template-columns: 1fr 1fr; }
-  .grid-3 { grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 800px) {
-  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
-}
-
-/* Stat blocks */
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.stat-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-}
-
-.detail-value {
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.45;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.detail-value.error {
-  color: var(--accent-red);
-}
-
-.stat-value {
-  font-size: 18px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-value.green { color: var(--accent-green); }
-.stat-value.amber { color: var(--accent-amber); }
-.stat-value.red { color: var(--accent-red); }
-.stat-value.blue { color: var(--accent-blue); }
-.stat-value.purple { color: var(--accent-purple); }
-.stat-value.small { font-size: 13px; font-weight: 500; }
-
-/* Bars */
-.bar-track {
-  height: 6px;
-  background: var(--bg-deep);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-top: 4px;
-}
-
-.bar-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.4s ease;
-}
-
-.bar-fill.green { background: var(--accent-green); }
-.bar-fill.amber { background: var(--accent-amber); }
-.bar-fill.red { background: var(--accent-red); }
-
-/* Badges */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.badge.green { background: var(--accent-green-dim); color: var(--accent-green); }
-.badge.amber { background: var(--accent-amber-dim); color: var(--accent-amber); }
-.badge.red { background: var(--accent-red-dim); color: var(--accent-red); }
-.badge.blue { background: var(--accent-blue-dim); color: var(--accent-blue); }
-.badge.cyan { background: rgba(64, 224, 208, 0.14); color: var(--accent-cyan); }
-.badge.purple { background: var(--accent-purple-dim); color: var(--accent-purple); }
-.badge.muted { background: var(--bg-surface); color: var(--text-muted); }
-
-/* Tables */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.data-table th {
-  text-align: left;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-  font-weight: 500;
-}
-
-.data-table td {
-  padding: 5px 8px;
-  border-bottom: 1px solid var(--bg-surface);
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.data-table tr:hover td {
-  background: var(--bg-surface);
-}
-
-/* Event feed */
-.event-item {
-  display: flex;
-  gap: 10px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--bg-surface);
-  font-size: 12px;
-  align-items: flex-start;
-}
-
-.event-time {
-  color: var(--text-muted);
-  font-size: 10px;
-  flex-shrink: 0;
-  min-width: 70px;
-  padding-top: 1px;
-}
-
-.event-type {
-  flex-shrink: 0;
-  min-width: 120px;
-}
-
-.event-payload {
-  color: var(--text-secondary);
-  flex: 1;
-  min-width: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* Inputs */
-input[type="text"], input[type="number"], textarea, select {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  background: var(--bg-deep);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-primary);
-  padding: 8px 10px;
-  outline: none;
-  transition: border-color 0.15s;
-  width: 100%;
-}
-
-input:focus, textarea:focus, select:focus {
-  border-color: var(--accent-blue);
-}
-
-/* Buttons */
-.btn {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 7px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  white-space: nowrap;
-}
-
-.btn:hover { background: var(--bg-card); border-color: var(--border-bright); }
-
-.btn.primary { background: var(--accent-blue-dim); border-color: var(--accent-blue); color: var(--accent-blue); }
-.btn.primary:hover { background: var(--accent-blue); color: var(--bg-deep); }
-
-.btn.danger { background: var(--accent-red-dim); border-color: var(--accent-red); color: var(--accent-red); }
-.btn.danger:hover { background: var(--accent-red); color: var(--bg-deep); }
-
-.btn.success { background: var(--accent-green-dim); border-color: var(--accent-green); color: var(--accent-green); }
-.btn.success:hover { background: var(--accent-green); color: var(--bg-deep); }
-
-.btn.warning { background: var(--accent-amber-dim); border-color: var(--accent-amber); color: var(--accent-amber); }
-
-.btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* Control groups */
-.control-group {
-  margin-bottom: 16px;
-}
-
-.control-group label {
-  display: block;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-}
-
-.control-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.control-row input { flex: 1; }
-
-/* Filter bar */
-.filter-bar {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
-.filter-chip {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.filter-chip:hover { color: var(--text-secondary); border-color: var(--border-bright); }
-.filter-chip.active { color: var(--accent-cyan); border-color: var(--accent-cyan); background: rgba(64, 224, 208, 0.08); }
-
-/* Toast feedback */
-.toast {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  padding: 10px 18px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-size: 12px;
-  color: var(--text-primary);
-  z-index: 1000;
-  animation: toastIn 0.2s ease, toastOut 0.2s ease 2.5s forwards;
-  max-width: 400px;
-}
-
-.toast.error { border-color: var(--accent-red); color: var(--accent-red); }
-.toast.success { border-color: var(--accent-green); color: var(--accent-green); }
-
-@keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
-
-/* Memory items */
-.memory-item {
-  padding: 8px 10px;
-  background: var(--bg-surface);
-  border-left: 3px solid var(--border);
-  border-radius: 0 var(--radius) var(--radius) 0;
-  margin-bottom: 6px;
-  font-size: 12px;
-}
-
-.memory-item .tags {
-  display: flex;
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.memory-item .meta {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-/* Empty state */
-.empty {
-  text-align: center;
-  padding: 30px;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-/* Section heading */
-.section-heading {
-  font-family: var(--font-display);
-  font-size: 12px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin: 20px 0 10px;
-}
-
-.section-heading:first-child { margin-top: 0; }
-
-/* Hostile row highlight */
-.hostile-row td { color: var(--accent-red) !important; }
-
-/* Connection lost overlay */
-#connection-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(6, 10, 16, 0.9);
-  z-index: 2000;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 12px;
-}
-
-#connection-overlay.visible { display: flex; }
-
-#connection-overlay .msg {
-  font-family: var(--font-display);
-  font-size: 14px;
-  color: var(--accent-amber);
-  letter-spacing: 1px;
-}
-
-#connection-overlay .sub {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-/* Pulse animation for active states */
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.pulsing { animation: pulse 1.5s ease-in-out infinite; }
-
-/* Stagger reveal */
-.card {
-  animation: cardIn 0.3s ease both;
-}
-
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.card:nth-child(2) { animation-delay: 0.04s; }
-.card:nth-child(3) { animation-delay: 0.08s; }
-.card:nth-child(4) { animation-delay: 0.12s; }
-.card:nth-child(5) { animation-delay: 0.16s; }
-.card:nth-child(6) { animation-delay: 0.2s; }
-
-/* Result display */
-.result-display {
-  background: var(--bg-deep);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 10px 12px;
-  font-size: 11px;
-  color: var(--text-secondary);
-  max-height: 200px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-  margin-top: 8px;
-}
-</style>
-</head>
-<body>
-<div id="app">
-
-<header>
-  <div class="logo">MineOps <span>//</span> Agent</div>
-  <div class="session-info">
-    <span class="tag"><span class="status-dot" id="status-dot"></span> <span id="session-status">connecting</span></span>
-    <span class="tag" id="session-server">localhost:25565</span>
-    <span class="tag" id="session-user">Bot</span>
-    <span class="tag" id="session-auth">offline</span>
-  </div>
-</header>
-
-<nav>
-  <button class="active" data-tab="overview">Overview</button>
-  <button data-tab="world">World</button>
-  <button data-tab="memory">Memory</button>
-  <button data-tab="events">Events</button>
-  <button data-tab="controls">Controls</button>
-</nav>
-
-<main>
-
-<!-- ==================== OVERVIEW TAB ==================== -->
-<div class="tab-content active" id="tab-overview">
-
-<div class="grid-4" id="overview-stats">
-  <div class="card">
-    <div class="card-title"><span class="indicator" style="background:var(--accent-red)"></span> Health</div>
-    <div class="stat">
-      <div class="stat-value" id="ov-health">--</div>
-      <div class="bar-track"><div class="bar-fill green" id="ov-health-bar" style="width:0%"></div></div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-title"><span class="indicator" style="background:var(--accent-amber)"></span> Hunger</div>
-    <div class="stat">
-      <div class="stat-value" id="ov-hunger">--</div>
-      <div class="bar-track"><div class="bar-fill amber" id="ov-hunger-bar" style="width:0%"></div></div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-title"><span class="indicator" style="background:var(--accent-blue)"></span> Position</div>
-    <div class="stat">
-      <div class="stat-value small blue" id="ov-position">-- -- --</div>
-      <div style="margin-top:4px"><span class="stat-label">biome</span> <span id="ov-biome" style="color:var(--text-secondary)">--</span></div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-title"><span class="indicator" style="background:var(--accent-purple)"></span> Risk</div>
-    <div class="stat">
-      <div class="stat-value" id="ov-risk">--</div>
-      <div style="margin-top:4px"><span class="stat-label">time</span> <span id="ov-time" style="color:var(--text-secondary)">--</span></div>
-    </div>
-  </div>
-</div>
-
-<div class="grid-2">
-  <div>
-    <!-- Goal -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-purple)"></span> Current Goal</div>
-      <div id="ov-goal" style="color:var(--text-secondary);font-size:13px;">No goal set</div>
-    </div>
-
-    <!-- Safety -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-red)"></span> Safety</div>
-      <div id="ov-safety-badges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
-      <div class="grid-3" style="font-size:11px;">
-        <div><span class="stat-label">Monitor</span><br><span id="ov-safety-monitor">--</span></div>
-        <div><span class="stat-label">Oxygen</span><br><span id="ov-safety-oxygen">--</span></div>
-        <div><span class="stat-label">Escape</span><br><span id="ov-safety-escape">--</span></div>
-      </div>
-      <div style="margin-top:8px;">
-        <span class="stat-label">Nearest Threat</span>
-        <div id="ov-safety-threat" style="color:var(--text-secondary);font-size:12px;margin-top:2px;">None</div>
-      </div>
-      <div style="margin-top:8px;">
-        <span class="stat-label">Blocks</span>
-        <div id="ov-safety-blocks" style="color:var(--text-secondary);font-size:12px;margin-top:2px;">--</div>
-      </div>
-    </div>
-
-    <!-- Pathing -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-blue)"></span> Pathing</div>
-      <div id="ov-pathing-badges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
-      <div class="grid-3" style="font-size:11px;">
-        <div><span class="stat-label">Goal</span><br><span id="ov-pathing-goal">--</span></div>
-        <div><span class="stat-label">Physics</span><br><span id="ov-pathing-physics">--</span></div>
-        <div><span class="stat-label">Follow</span><br><span id="ov-pathing-follow">--</span></div>
-      </div>
-      <div style="margin-top:8px;">
-        <span class="stat-label">Movement Config</span>
-        <div id="ov-pathing-movement" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
-      </div>
-    </div>
-  </div>
-
-  <div>
-    <!-- Inventory -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-amber)"></span> Inventory</div>
-      <div style="display:flex;gap:16px;margin-bottom:8px;font-size:11px;">
-        <div><span class="stat-label">Slots</span><br><span id="ov-inv-slots">--</span></div>
-        <div><span class="stat-label">Held</span><br><span id="ov-inv-held">--</span></div>
-        <div><span class="stat-label">Hotbar</span><br><span id="ov-inv-hotbar">--</span></div>
-      </div>
-      <div id="ov-inv-table" style="max-height:180px;overflow-y:auto;"></div>
-    </div>
-
-    <!-- Recent Events -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Recent Activity</div>
-      <div id="ov-recent-events" style="max-height:260px;overflow-y:auto;"></div>
-    </div>
-
-    <!-- Planner -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-purple)"></span> Planner</div>
-      <div id="ov-planner-badges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
-      <div class="grid-2" style="font-size:11px;">
-        <div><span class="stat-label">Model</span><br><span id="ov-planner-model">--</span></div>
-        <div><span class="stat-label">Last Planned</span><br><span id="ov-planner-last">--</span></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Executor</div>
-      <div id="ov-executor-badges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
-      <div class="grid-2" style="font-size:11px;">
-        <div><span class="stat-label">Last Tool</span><br><span id="ov-executor-tool">--</span></div>
-        <div><span class="stat-label">Last Step</span><br><span id="ov-executor-last">--</span></div>
-      </div>
-    </div>
-  </div>
-</div>
-</div>
-
-<!-- ==================== WORLD TAB ==================== -->
-<div class="tab-content" id="tab-world">
-<div class="grid-2">
-  <div>
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-blue)"></span> Heading</div>
-      <div class="grid-3" style="font-size:12px;">
-        <div><span class="stat-label">Cardinal</span><br><span id="w-heading-card">--</span></div>
-        <div><span class="stat-label">Yaw</span><br><span id="w-heading-yaw">--</span></div>
-        <div><span class="stat-label">Pitch</span><br><span id="w-heading-pitch">--</span></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-green)"></span> Visible Blocks</div>
-      <div id="w-blocks" style="max-height:300px;overflow-y:auto;"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-red)"></span> Hazards</div>
-      <div id="w-hazards"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Highlights</div>
-      <div id="w-highlights"></div>
-    </div>
-  </div>
-
-  <div>
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-amber)"></span> Visible Entities</div>
-      <div id="w-entities" style="max-height:300px;overflow-y:auto;"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-purple)"></span> Focus</div>
-      <div class="stat-label">Block at cursor</div>
-      <div id="w-focus-block" style="font-size:12px;color:var(--text-secondary);margin:4px 0 8px;">--</div>
-      <div class="stat-label">Entity at cursor</div>
-      <div id="w-focus-entity" style="font-size:12px;color:var(--text-secondary);margin-top:4px;">--</div>
-    </div>
-
-    <!-- Inspectors -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-blue)"></span> Block Lookup</div>
-      <div class="control-row">
-        <input type="number" id="w-blk-x" placeholder="x" style="width:60px">
-        <input type="number" id="w-blk-y" placeholder="y" style="width:60px">
-        <input type="number" id="w-blk-z" placeholder="z" style="width:60px">
-        <button class="btn primary" onclick="cmdBlockLookup()">Lookup</button>
-      </div>
-      <div class="result-display" id="w-blk-result" style="display:none"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-green)"></span> Find Block</div>
-      <div class="control-row">
-        <input type="text" id="w-find-name" placeholder="block name">
-        <input type="number" id="w-find-dist" placeholder="dist" style="width:60px" value="32">
-        <button class="btn primary" onclick="cmdFindBlock()">Find</button>
-      </div>
-      <div class="result-display" id="w-find-result" style="display:none"></div>
-    </div>
-  </div>
-</div>
-</div>
-
-<!-- ==================== MEMORY TAB ==================== -->
-<div class="tab-content" id="tab-memory">
-<div class="grid-2">
-  <div>
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-purple)"></span> Goal</div>
-      <div id="m-goal" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">No goal set</div>
-      <div class="control-row">
-        <input type="text" id="m-goal-input" placeholder="Set a new goal...">
-        <button class="btn success" onclick="cmdGoalSet()">Set</button>
-        <button class="btn danger" onclick="cmdGoalClear()">Clear</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-purple)"></span> Planner</div>
-      <div id="m-planner-badges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
-      <div class="grid-2" style="font-size:11px;margin-bottom:10px;">
-        <div><span class="stat-label">Model</span><br><span id="m-planner-model">--</span></div>
-        <div><span class="stat-label">Provider</span><br><span id="m-planner-provider">--</span></div>
-        <div><span class="stat-label">Last Planned</span><br><span id="m-planner-last-planned">--</span></div>
-        <div><span class="stat-label">Last Trigger</span><br><span id="m-planner-trigger">--</span></div>
-      </div>
-      <div style="margin-bottom:10px;">
-        <div class="stat-label">Last Error</div>
-        <div id="m-planner-error" class="detail-value error">None</div>
-      </div>
-      <div class="control-row">
-        <button class="btn success" onclick="sendCmd('planner:on')">Enable</button>
-        <button class="btn danger" onclick="sendCmd('planner:off')">Disable</button>
-        <button class="btn primary" onclick="sendCmd('planner:now')">Replan Now</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Executor</div>
-      <div id="m-executor-badges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
-      <div class="grid-2" style="font-size:11px;margin-bottom:10px;">
-        <div><span class="stat-label">Model</span><br><span id="m-executor-model">--</span></div>
-        <div><span class="stat-label">Provider</span><br><span id="m-executor-provider">--</span></div>
-        <div><span class="stat-label">Last Step</span><br><span id="m-executor-last-step">--</span></div>
-        <div><span class="stat-label">Last Trigger</span><br><span id="m-executor-trigger">--</span></div>
-        <div><span class="stat-label">Last Tool</span><br><span id="m-executor-tool">--</span></div>
-      </div>
-      <div style="margin-bottom:10px;">
-        <div class="stat-label">Last Error</div>
-        <div id="m-executor-error" class="detail-value error">None</div>
-      </div>
-      <div class="control-row">
-        <button class="btn success" onclick="sendCmd('executor:on')">Enable</button>
-        <button class="btn danger" onclick="sendCmd('executor:off')">Disable</button>
-        <button class="btn primary" onclick="sendCmd('executor:now')">Step Now</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-red)"></span> Recent Failures</div>
-      <div id="m-failures"></div>
-    </div>
-  </div>
-
-  <div>
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-blue)"></span> Agent Context</div>
-      <div class="grid-2" style="font-size:11px;margin-bottom:10px;">
-        <div><span class="stat-label">Goal</span><br><span id="m-context-goal">--</span></div>
-        <div><span class="stat-label">Risk</span><br><span id="m-context-risk">--</span></div>
-        <div><span class="stat-label">Position</span><br><span id="m-context-position">--</span></div>
-        <div><span class="stat-label">Biome</span><br><span id="m-context-biome">--</span></div>
-      </div>
-      <div style="margin-bottom:10px;">
-        <div class="stat-label">Perception</div>
-        <div id="m-context-perception" class="detail-value">--</div>
-      </div>
-      <div style="margin-bottom:10px;">
-        <div class="stat-label">Recent Chat</div>
-        <div id="m-context-chat" class="detail-value">--</div>
-      </div>
-      <div>
-        <div class="stat-label">Live Snapshot</div>
-        <div id="m-context-json" class="result-display" style="max-height:300px;margin-top:6px;"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Executor Trace</div>
-      <div id="m-executor-trace-badges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
-      <div class="grid-2" style="font-size:11px;margin-bottom:10px;">
-        <div><span class="stat-label">Last Event</span><br><span id="m-executor-trace-event">--</span></div>
-        <div><span class="stat-label">Recorded</span><br><span id="m-executor-trace-time">--</span></div>
-        <div><span class="stat-label">Trigger</span><br><span id="m-executor-trace-trigger">--</span></div>
-        <div><span class="stat-label">Outcome</span><br><span id="m-executor-trace-outcome">--</span></div>
-      </div>
-      <div style="margin-bottom:10px;">
-        <div class="stat-label">Decision Args</div>
-        <div id="m-executor-trace-args" class="result-display" style="max-height:140px;margin-top:6px;"></div>
-      </div>
-      <div>
-        <div class="stat-label">Tool Result</div>
-        <div id="m-executor-trace-result" class="result-display" style="max-height:220px;margin-top:6px;"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-amber)"></span> Working Memory</div>
-      <div id="m-working"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Short-Term Events</div>
-      <div id="m-st-events" style="max-height:250px;overflow-y:auto;"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-blue)"></span> Summaries</div>
-      <div id="m-summaries" style="max-height:200px;overflow-y:auto;"></div>
-    </div>
-  </div>
-</div>
-</div>
-
-<!-- ==================== EVENTS TAB ==================== -->
-<div class="tab-content" id="tab-events">
-<div class="card">
-  <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Event Stream</div>
-  <div class="filter-bar" id="event-filters"></div>
-  <div id="event-list" style="max-height:calc(100vh - 240px);overflow-y:auto;"></div>
-</div>
-</div>
-
-<!-- ==================== CONTROLS TAB ==================== -->
-<div class="tab-content" id="tab-controls">
-<div class="grid-2">
-  <div>
-    <!-- Chat -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Chat</div>
-      <div id="ctrl-chat-history" style="max-height:160px;overflow-y:auto;margin-bottom:10px;"></div>
-      <div class="control-row">
-        <input type="text" id="ctrl-chat-input" placeholder="Send a message..." onkeydown="if(event.key==='Enter')cmdChat()">
-        <button class="btn primary" onclick="cmdChat()">Send</button>
-      </div>
-    </div>
-
-    <!-- Movement -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-blue)"></span> Movement</div>
-      <div class="control-group">
-        <label>Goto Position</label>
-        <div class="control-row">
-          <input type="number" id="ctrl-goto-x" placeholder="x">
-          <input type="number" id="ctrl-goto-y" placeholder="y">
-          <input type="number" id="ctrl-goto-z" placeholder="z">
-          <button class="btn primary" onclick="cmdGoto()">Go</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MineOps // Agent Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --bg-deep: #060a10;
+        --bg-base: #0b1018;
+        --bg-surface: #111923;
+        --bg-card: #162030;
+        --bg-card-hover: #1a2840;
+        --border: #1e2e42;
+        --border-bright: #2a4060;
+        --text-primary: #d8dee8;
+        --text-secondary: #6a7a90;
+        --text-muted: #3e5068;
+        --accent-green: #2ddb72;
+        --accent-green-dim: #1a7a40;
+        --accent-amber: #f0a830;
+        --accent-amber-dim: #7a5518;
+        --accent-red: #f04848;
+        --accent-red-dim: #7a2424;
+        --accent-blue: #4a9eff;
+        --accent-blue-dim: #1e4a80;
+        --accent-purple: #a06eff;
+        --accent-purple-dim: #4a2e80;
+        --accent-cyan: #40e0d0;
+        --font-display: "Silkscreen", cursive;
+        --font-mono: "JetBrains Mono", monospace;
+        --radius: 6px;
+        --radius-lg: 10px;
+      }
+
+      html,
+      body {
+        height: 100%;
+        font-family: var(--font-mono);
+        font-size: 13px;
+        font-weight: 400;
+        color: var(--text-primary);
+        background: var(--bg-deep);
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--border-bright);
+      }
+
+      /* Layout */
+      #app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      /* Top bar */
+      header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 10px 20px;
+        background: var(--bg-base);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        position: relative;
+        overflow: hidden;
+      }
+
+      header::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--accent-green),
+          var(--accent-blue),
+          var(--accent-purple),
+          transparent
+        );
+        opacity: 0.6;
+      }
+
+      .logo {
+        font-family: var(--font-display);
+        font-size: 16px;
+        letter-spacing: 1px;
+        color: var(--accent-green);
+        text-transform: uppercase;
+        white-space: nowrap;
+        user-select: none;
+      }
+
+      .logo span {
+        color: var(--text-muted);
+      }
+
+      .session-info {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        font-size: 11px;
+        color: var(--text-secondary);
+        margin-left: auto;
+      }
+
+      .session-info .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-muted);
+        flex-shrink: 0;
+      }
+      .status-dot.green {
+        background: var(--accent-green);
+        box-shadow: 0 0 6px var(--accent-green);
+      }
+      .status-dot.amber {
+        background: var(--accent-amber);
+        box-shadow: 0 0 6px var(--accent-amber);
+      }
+      .status-dot.red {
+        background: var(--accent-red);
+        box-shadow: 0 0 6px var(--accent-red);
+      }
+
+      /* Tabs */
+      nav {
+        display: flex;
+        gap: 0;
+        background: var(--bg-base);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        padding: 0 12px;
+      }
+
+      nav button {
+        font-family: var(--font-display);
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        padding: 10px 18px;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition:
+          color 0.15s,
+          border-color 0.15s;
+        text-transform: uppercase;
+      }
+
+      nav button:hover {
+        color: var(--text-secondary);
+      }
+
+      nav button.active {
+        color: var(--accent-green);
+        border-bottom-color: var(--accent-green);
+      }
+
+      /* Main content */
+      main {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 20px;
+      }
+
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+
+      /* Cards */
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 16px;
+        margin-bottom: 12px;
+      }
+
+      .card-title {
+        font-family: var(--font-display);
+        font-size: 11px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .card-title .indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+      }
+
+      /* Grid layouts */
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+      }
+
+      .grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+
+      @media (max-width: 1200px) {
+        .grid-4 {
+          grid-template-columns: 1fr 1fr;
+        }
+        .grid-3 {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      @media (max-width: 800px) {
+        .grid-2,
+        .grid-3,
+        .grid-4 {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Stat blocks */
+      .stat {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .stat-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+      }
+
+      .detail-value {
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .detail-value.error {
+        color: var(--accent-red);
+      }
+
+      .stat-value {
+        font-size: 18px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stat-value.green {
+        color: var(--accent-green);
+      }
+      .stat-value.amber {
+        color: var(--accent-amber);
+      }
+      .stat-value.red {
+        color: var(--accent-red);
+      }
+      .stat-value.blue {
+        color: var(--accent-blue);
+      }
+      .stat-value.purple {
+        color: var(--accent-purple);
+      }
+      .stat-value.small {
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      /* Bars */
+      .bar-track {
+        height: 6px;
+        background: var(--bg-deep);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 4px;
+      }
+
+      .bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.4s ease;
+      }
+
+      .bar-fill.green {
+        background: var(--accent-green);
+      }
+      .bar-fill.amber {
+        background: var(--accent-amber);
+      }
+      .bar-fill.red {
+        background: var(--accent-red);
+      }
+
+      /* Badges */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .badge.green {
+        background: var(--accent-green-dim);
+        color: var(--accent-green);
+      }
+      .badge.amber {
+        background: var(--accent-amber-dim);
+        color: var(--accent-amber);
+      }
+      .badge.red {
+        background: var(--accent-red-dim);
+        color: var(--accent-red);
+      }
+      .badge.blue {
+        background: var(--accent-blue-dim);
+        color: var(--accent-blue);
+      }
+      .badge.cyan {
+        background: rgba(64, 224, 208, 0.14);
+        color: var(--accent-cyan);
+      }
+      .badge.purple {
+        background: var(--accent-purple-dim);
+        color: var(--accent-purple);
+      }
+      .badge.muted {
+        background: var(--bg-surface);
+        color: var(--text-muted);
+      }
+
+      /* Tables */
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+
+      .data-table th {
+        text-align: left;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border);
+        font-weight: 500;
+      }
+
+      .data-table td {
+        padding: 5px 8px;
+        border-bottom: 1px solid var(--bg-surface);
+        color: var(--text-secondary);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .data-table tr:hover td {
+        background: var(--bg-surface);
+      }
+
+      /* Event feed */
+      .event-item {
+        display: flex;
+        gap: 10px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--bg-surface);
+        font-size: 12px;
+        align-items: flex-start;
+      }
+
+      .event-time {
+        color: var(--text-muted);
+        font-size: 10px;
+        flex-shrink: 0;
+        min-width: 70px;
+        padding-top: 1px;
+      }
+
+      .event-type {
+        flex-shrink: 0;
+        min-width: 120px;
+      }
+
+      .event-payload {
+        color: var(--text-secondary);
+        flex: 1;
+        min-width: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      /* Inputs */
+      input[type="text"],
+      input[type="number"],
+      textarea,
+      select {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        background: var(--bg-deep);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text-primary);
+        padding: 8px 10px;
+        outline: none;
+        transition: border-color 0.15s;
+        width: 100%;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        border-color: var(--accent-blue);
+      }
+
+      /* Buttons */
+      .btn {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        padding: 7px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg-surface);
+        color: var(--text-primary);
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+      }
+
+      .btn:hover {
+        background: var(--bg-card);
+        border-color: var(--border-bright);
+      }
+
+      .btn.primary {
+        background: var(--accent-blue-dim);
+        border-color: var(--accent-blue);
+        color: var(--accent-blue);
+      }
+      .btn.primary:hover {
+        background: var(--accent-blue);
+        color: var(--bg-deep);
+      }
+
+      .btn.danger {
+        background: var(--accent-red-dim);
+        border-color: var(--accent-red);
+        color: var(--accent-red);
+      }
+      .btn.danger:hover {
+        background: var(--accent-red);
+        color: var(--bg-deep);
+      }
+
+      .btn.success {
+        background: var(--accent-green-dim);
+        border-color: var(--accent-green);
+        color: var(--accent-green);
+      }
+      .btn.success:hover {
+        background: var(--accent-green);
+        color: var(--bg-deep);
+      }
+
+      .btn.warning {
+        background: var(--accent-amber-dim);
+        border-color: var(--accent-amber);
+        color: var(--accent-amber);
+      }
+
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      /* Control groups */
+      .control-group {
+        margin-bottom: 16px;
+      }
+
+      .control-group label {
+        display: block;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+      }
+
+      .control-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .control-row input {
+        flex: 1;
+      }
+
+      /* Filter bar */
+      .filter-bar {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+
+      .filter-chip {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        padding: 4px 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .filter-chip:hover {
+        color: var(--text-secondary);
+        border-color: var(--border-bright);
+      }
+      .filter-chip.active {
+        color: var(--accent-cyan);
+        border-color: var(--accent-cyan);
+        background: rgba(64, 224, 208, 0.08);
+      }
+
+      /* Toast feedback */
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 10px 18px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        font-size: 12px;
+        color: var(--text-primary);
+        z-index: 1000;
+        animation:
+          toastIn 0.2s ease,
+          toastOut 0.2s ease 2.5s forwards;
+        max-width: 400px;
+      }
+
+      .toast.error {
+        border-color: var(--accent-red);
+        color: var(--accent-red);
+      }
+      .toast.success {
+        border-color: var(--accent-green);
+        color: var(--accent-green);
+      }
+
+      @keyframes toastIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes toastOut {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0;
+        }
+      }
+
+      /* Memory items */
+      .memory-item {
+        padding: 8px 10px;
+        background: var(--bg-surface);
+        border-left: 3px solid var(--border);
+        border-radius: 0 var(--radius) var(--radius) 0;
+        margin-bottom: 6px;
+        font-size: 12px;
+      }
+
+      .memory-item .tags {
+        display: flex;
+        gap: 4px;
+        margin-top: 4px;
+      }
+
+      .memory-item .meta {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      /* Empty state */
+      .empty {
+        text-align: center;
+        padding: 30px;
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      /* Section heading */
+      .section-heading {
+        font-family: var(--font-display);
+        font-size: 12px;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin: 20px 0 10px;
+      }
+
+      .section-heading:first-child {
+        margin-top: 0;
+      }
+
+      /* Hostile row highlight */
+      .hostile-row td {
+        color: var(--accent-red) !important;
+      }
+
+      /* Connection lost overlay */
+      #connection-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(6, 10, 16, 0.9);
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      #connection-overlay.visible {
+        display: flex;
+      }
+
+      #connection-overlay .msg {
+        font-family: var(--font-display);
+        font-size: 14px;
+        color: var(--accent-amber);
+        letter-spacing: 1px;
+      }
+
+      #connection-overlay .sub {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      /* Pulse animation for active states */
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .pulsing {
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      /* Stagger reveal */
+      .card {
+        animation: cardIn 0.3s ease both;
+      }
+
+      @keyframes cardIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .card:nth-child(2) {
+        animation-delay: 0.04s;
+      }
+      .card:nth-child(3) {
+        animation-delay: 0.08s;
+      }
+      .card:nth-child(4) {
+        animation-delay: 0.12s;
+      }
+      .card:nth-child(5) {
+        animation-delay: 0.16s;
+      }
+      .card:nth-child(6) {
+        animation-delay: 0.2s;
+      }
+
+      /* Result display */
+      .result-display {
+        background: var(--bg-deep);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 12px;
+        font-size: 11px;
+        color: var(--text-secondary);
+        max-height: 200px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="logo">MineOps <span>//</span> Agent</div>
+        <div class="session-info">
+          <span class="tag"
+            ><span class="status-dot" id="status-dot"></span>
+            <span id="session-status">connecting</span></span
+          >
+          <span class="tag" id="session-server">localhost:25565</span>
+          <span class="tag" id="session-user">Bot</span>
+          <span class="tag" id="session-auth">offline</span>
         </div>
-      </div>
-      <div class="control-group">
-        <label>Follow Player</label>
-        <div class="control-row">
-          <input type="text" id="ctrl-follow-name" placeholder="player name">
-          <input type="number" id="ctrl-follow-range" placeholder="range" value="2" style="width:60px">
-          <button class="btn primary" onclick="cmdFollow()">Follow</button>
+      </header>
+
+      <nav>
+        <button class="active" data-tab="overview">Overview</button>
+        <button data-tab="world">World</button>
+        <button data-tab="memory">Memory</button>
+        <button data-tab="events">Events</button>
+        <button data-tab="controls">Controls</button>
+      </nav>
+
+      <main>
+        <!-- ==================== OVERVIEW TAB ==================== -->
+        <div class="tab-content active" id="tab-overview">
+          <div class="grid-4" id="overview-stats">
+            <div class="card">
+              <div class="card-title">
+                <span class="indicator" style="background: var(--accent-red)"></span> Health
+              </div>
+              <div class="stat">
+                <div class="stat-value" id="ov-health">--</div>
+                <div class="bar-track">
+                  <div class="bar-fill green" id="ov-health-bar" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">
+                <span class="indicator" style="background: var(--accent-amber)"></span> Hunger
+              </div>
+              <div class="stat">
+                <div class="stat-value" id="ov-hunger">--</div>
+                <div class="bar-track">
+                  <div class="bar-fill amber" id="ov-hunger-bar" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">
+                <span class="indicator" style="background: var(--accent-blue)"></span> Position
+              </div>
+              <div class="stat">
+                <div class="stat-value small blue" id="ov-position">-- -- --</div>
+                <div style="margin-top: 4px">
+                  <span class="stat-label">biome</span>
+                  <span id="ov-biome" style="color: var(--text-secondary)">--</span>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">
+                <span class="indicator" style="background: var(--accent-purple)"></span> Risk
+              </div>
+              <div class="stat">
+                <div class="stat-value" id="ov-risk">--</div>
+                <div style="margin-top: 4px">
+                  <span class="stat-label">time</span>
+                  <span id="ov-time" style="color: var(--text-secondary)">--</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <!-- Goal -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-purple)"></span> Current
+                  Goal
+                </div>
+                <div id="ov-goal" style="color: var(--text-secondary); font-size: 13px">
+                  No goal set
+                </div>
+              </div>
+
+              <!-- Safety -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-red)"></span> Safety
+                </div>
+                <div
+                  id="ov-safety-badges"
+                  style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px"
+                ></div>
+                <div class="grid-3" style="font-size: 11px">
+                  <div>
+                    <span class="stat-label">Monitor</span><br /><span id="ov-safety-monitor"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Oxygen</span><br /><span id="ov-safety-oxygen"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Escape</span><br /><span id="ov-safety-escape"
+                      >--</span
+                    >
+                  </div>
+                </div>
+                <div style="margin-top: 8px">
+                  <span class="stat-label">Nearest Threat</span>
+                  <div
+                    id="ov-safety-threat"
+                    style="color: var(--text-secondary); font-size: 12px; margin-top: 2px"
+                  >
+                    None
+                  </div>
+                </div>
+                <div style="margin-top: 8px">
+                  <span class="stat-label">Blocks</span>
+                  <div
+                    id="ov-safety-blocks"
+                    style="color: var(--text-secondary); font-size: 12px; margin-top: 2px"
+                  >
+                    --
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pathing -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-blue)"></span> Pathing
+                </div>
+                <div
+                  id="ov-pathing-badges"
+                  style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px"
+                ></div>
+                <div class="grid-3" style="font-size: 11px">
+                  <div>
+                    <span class="stat-label">Goal</span><br /><span id="ov-pathing-goal">--</span>
+                  </div>
+                  <div>
+                    <span class="stat-label">Physics</span><br /><span id="ov-pathing-physics"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Follow</span><br /><span id="ov-pathing-follow"
+                      >--</span
+                    >
+                  </div>
+                </div>
+                <div style="margin-top: 8px">
+                  <span class="stat-label">Movement Config</span>
+                  <div
+                    id="ov-pathing-movement"
+                    style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px"
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <!-- Inventory -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-amber)"></span> Inventory
+                </div>
+                <div style="display: flex; gap: 16px; margin-bottom: 8px; font-size: 11px">
+                  <div>
+                    <span class="stat-label">Slots</span><br /><span id="ov-inv-slots">--</span>
+                  </div>
+                  <div>
+                    <span class="stat-label">Held</span><br /><span id="ov-inv-held">--</span>
+                  </div>
+                  <div>
+                    <span class="stat-label">Hotbar</span><br /><span id="ov-inv-hotbar">--</span>
+                  </div>
+                </div>
+                <div id="ov-inv-table" style="max-height: 180px; overflow-y: auto"></div>
+              </div>
+
+              <!-- Recent Events -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-cyan)"></span> Recent
+                  Activity
+                </div>
+                <div id="ov-recent-events" style="max-height: 260px; overflow-y: auto"></div>
+              </div>
+
+              <!-- Planner -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-purple)"></span> Planner
+                </div>
+                <div
+                  id="ov-planner-badges"
+                  style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px"
+                ></div>
+                <div class="grid-2" style="font-size: 11px">
+                  <div>
+                    <span class="stat-label">Model</span><br /><span id="ov-planner-model">--</span>
+                  </div>
+                  <div>
+                    <span class="stat-label">Last Planned</span><br /><span id="ov-planner-last"
+                      >--</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-cyan)"></span> Executor
+                </div>
+                <div
+                  id="ov-executor-badges"
+                  style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px"
+                ></div>
+                <div class="grid-2" style="font-size: 11px">
+                  <div>
+                    <span class="stat-label">Last Tool</span><br /><span id="ov-executor-tool"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Last Step</span><br /><span id="ov-executor-last"
+                      >--</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      <button class="btn danger" onclick="sendCmd('stop')" style="width:100%">Stop All Movement</button>
-    </div>
 
-    <!-- Actions -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-amber)"></span> Actions</div>
-      <div class="control-group">
-        <label>Mine Block</label>
-        <div class="control-row">
-          <input type="number" id="ctrl-mine-x" placeholder="x">
-          <input type="number" id="ctrl-mine-y" placeholder="y">
-          <input type="number" id="ctrl-mine-z" placeholder="z">
-          <button class="btn primary" onclick="cmdMine()">Mine</button>
+        <!-- ==================== WORLD TAB ==================== -->
+        <div class="tab-content" id="tab-world">
+          <div class="grid-2">
+            <div>
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-blue)"></span> Heading
+                </div>
+                <div class="grid-3" style="font-size: 12px">
+                  <div>
+                    <span class="stat-label">Cardinal</span><br /><span id="w-heading-card"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Yaw</span><br /><span id="w-heading-yaw">--</span>
+                  </div>
+                  <div>
+                    <span class="stat-label">Pitch</span><br /><span id="w-heading-pitch">--</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-green)"></span> Visible
+                  Blocks
+                </div>
+                <div id="w-blocks" style="max-height: 300px; overflow-y: auto"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-red)"></span> Hazards
+                </div>
+                <div id="w-hazards"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-cyan)"></span> Highlights
+                </div>
+                <div id="w-highlights"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-amber)"></span> Visible
+                  Entities
+                </div>
+                <div id="w-entities" style="max-height: 300px; overflow-y: auto"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-purple)"></span> Focus
+                </div>
+                <div class="stat-label">Block at cursor</div>
+                <div
+                  id="w-focus-block"
+                  style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 8px"
+                >
+                  --
+                </div>
+                <div class="stat-label">Entity at cursor</div>
+                <div
+                  id="w-focus-entity"
+                  style="font-size: 12px; color: var(--text-secondary); margin-top: 4px"
+                >
+                  --
+                </div>
+              </div>
+
+              <!-- Inspectors -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-blue)"></span> Block
+                  Lookup
+                </div>
+                <div class="control-row">
+                  <input type="number" id="w-blk-x" placeholder="x" style="width: 60px" />
+                  <input type="number" id="w-blk-y" placeholder="y" style="width: 60px" />
+                  <input type="number" id="w-blk-z" placeholder="z" style="width: 60px" />
+                  <button class="btn primary" onclick="cmdBlockLookup()">Lookup</button>
+                </div>
+                <div class="result-display" id="w-blk-result" style="display: none"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-green)"></span> Find Block
+                </div>
+                <div class="control-row">
+                  <input type="text" id="w-find-name" placeholder="block name" />
+                  <input
+                    type="number"
+                    id="w-find-dist"
+                    placeholder="dist"
+                    style="width: 60px"
+                    value="32"
+                  />
+                  <button class="btn primary" onclick="cmdFindBlock()">Find</button>
+                </div>
+                <div class="result-display" id="w-find-result" style="display: none"></div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="control-group">
-        <label>Craft Item</label>
-        <div class="control-row">
-          <input type="text" id="ctrl-craft-item" placeholder="item name">
-          <input type="number" id="ctrl-craft-count" placeholder="qty" value="1" style="width:60px">
-          <button class="btn primary" onclick="cmdCraft()">Craft</button>
+
+        <!-- ==================== MEMORY TAB ==================== -->
+        <div class="tab-content" id="tab-memory">
+          <div class="grid-2">
+            <div>
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-purple)"></span> Goal
+                </div>
+                <div
+                  id="m-goal"
+                  style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px"
+                >
+                  No goal set
+                </div>
+                <div class="control-row">
+                  <input type="text" id="m-goal-input" placeholder="Set a new goal..." />
+                  <button class="btn success" onclick="cmdGoalSet()">Set</button>
+                  <button class="btn danger" onclick="cmdGoalClear()">Clear</button>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-purple)"></span> Planner
+                </div>
+                <div
+                  id="m-planner-badges"
+                  style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px"
+                ></div>
+                <div class="grid-2" style="font-size: 11px; margin-bottom: 10px">
+                  <div>
+                    <span class="stat-label">Model</span><br /><span id="m-planner-model">--</span>
+                  </div>
+                  <div>
+                    <span class="stat-label">Provider</span><br /><span id="m-planner-provider"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Last Planned</span><br /><span
+                      id="m-planner-last-planned"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Last Trigger</span><br /><span id="m-planner-trigger"
+                      >--</span
+                    >
+                  </div>
+                </div>
+                <div style="margin-bottom: 10px">
+                  <div class="stat-label">Last Error</div>
+                  <div id="m-planner-error" class="detail-value error">None</div>
+                </div>
+                <div class="control-row">
+                  <button class="btn success" onclick="sendCmd('planner:on')">Enable</button>
+                  <button class="btn danger" onclick="sendCmd('planner:off')">Disable</button>
+                  <button class="btn primary" onclick="sendCmd('planner:now')">Replan Now</button>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-cyan)"></span> Executor
+                </div>
+                <div
+                  id="m-executor-badges"
+                  style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px"
+                ></div>
+                <div class="grid-2" style="font-size: 11px; margin-bottom: 10px">
+                  <div>
+                    <span class="stat-label">Model</span><br /><span id="m-executor-model">--</span>
+                  </div>
+                  <div>
+                    <span class="stat-label">Provider</span><br /><span id="m-executor-provider"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Last Step</span><br /><span id="m-executor-last-step"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Last Trigger</span><br /><span id="m-executor-trigger"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Last Tool</span><br /><span id="m-executor-tool"
+                      >--</span
+                    >
+                  </div>
+                </div>
+                <div style="margin-bottom: 10px">
+                  <div class="stat-label">Last Error</div>
+                  <div id="m-executor-error" class="detail-value error">None</div>
+                </div>
+                <div class="control-row">
+                  <button class="btn success" onclick="sendCmd('executor:on')">Enable</button>
+                  <button class="btn danger" onclick="sendCmd('executor:off')">Disable</button>
+                  <button class="btn primary" onclick="sendCmd('executor:now')">Step Now</button>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-red)"></span> Recent
+                  Failures
+                </div>
+                <div id="m-failures"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-blue)"></span> Agent
+                  Context
+                </div>
+                <div class="grid-2" style="font-size: 11px; margin-bottom: 10px">
+                  <div>
+                    <span class="stat-label">Goal</span><br /><span id="m-context-goal">--</span>
+                  </div>
+                  <div>
+                    <span class="stat-label">Risk</span><br /><span id="m-context-risk">--</span>
+                  </div>
+                  <div>
+                    <span class="stat-label">Position</span><br /><span id="m-context-position"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Biome</span><br /><span id="m-context-biome">--</span>
+                  </div>
+                </div>
+                <div style="margin-bottom: 10px">
+                  <div class="stat-label">Perception</div>
+                  <div id="m-context-perception" class="detail-value">--</div>
+                </div>
+                <div style="margin-bottom: 10px">
+                  <div class="stat-label">Recent Chat</div>
+                  <div id="m-context-chat" class="detail-value">--</div>
+                </div>
+                <div>
+                  <div class="stat-label">Live Snapshot</div>
+                  <div
+                    id="m-context-json"
+                    class="result-display"
+                    style="max-height: 300px; margin-top: 6px"
+                  ></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-cyan)"></span> Executor
+                  Trace
+                </div>
+                <div
+                  id="m-executor-trace-badges"
+                  style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px"
+                ></div>
+                <div class="grid-2" style="font-size: 11px; margin-bottom: 10px">
+                  <div>
+                    <span class="stat-label">Last Event</span><br /><span
+                      id="m-executor-trace-event"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Recorded</span><br /><span id="m-executor-trace-time"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Trigger</span><br /><span id="m-executor-trace-trigger"
+                      >--</span
+                    >
+                  </div>
+                  <div>
+                    <span class="stat-label">Outcome</span><br /><span id="m-executor-trace-outcome"
+                      >--</span
+                    >
+                  </div>
+                </div>
+                <div style="margin-bottom: 10px">
+                  <div class="stat-label">Decision Args</div>
+                  <div
+                    id="m-executor-trace-args"
+                    class="result-display"
+                    style="max-height: 140px; margin-top: 6px"
+                  ></div>
+                </div>
+                <div>
+                  <div class="stat-label">Tool Result</div>
+                  <div
+                    id="m-executor-trace-result"
+                    class="result-display"
+                    style="max-height: 220px; margin-top: 6px"
+                  ></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-amber)"></span> Working
+                  Memory
+                </div>
+                <div id="m-working"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-cyan)"></span> Short-Term
+                  Events
+                </div>
+                <div id="m-st-events" style="max-height: 250px; overflow-y: auto"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-blue)"></span> Summaries
+                </div>
+                <div id="m-summaries" style="max-height: 200px; overflow-y: auto"></div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="control-group">
-        <label>Place Block</label>
-        <div class="control-row">
-          <input type="text" id="ctrl-place-item" placeholder="item" style="width:100px">
-          <input type="number" id="ctrl-place-x" placeholder="x">
-          <input type="number" id="ctrl-place-y" placeholder="y">
-          <input type="number" id="ctrl-place-z" placeholder="z">
-          <button class="btn primary" onclick="cmdPlace()">Place</button>
+
+        <!-- ==================== EVENTS TAB ==================== -->
+        <div class="tab-content" id="tab-events">
+          <div class="card">
+            <div class="card-title">
+              <span class="indicator" style="background: var(--accent-cyan)"></span> Event Stream
+            </div>
+            <div class="filter-bar" id="event-filters"></div>
+            <div id="event-list" style="max-height: calc(100vh - 240px); overflow-y: auto"></div>
+          </div>
         </div>
-      </div>
-      <div class="control-group">
-        <label>Open Container</label>
-        <div class="control-row">
-          <input type="number" id="ctrl-open-x" placeholder="x">
-          <input type="number" id="ctrl-open-y" placeholder="y">
-          <input type="number" id="ctrl-open-z" placeholder="z">
-          <button class="btn primary" onclick="cmdOpen()">Open</button>
+
+        <!-- ==================== CONTROLS TAB ==================== -->
+        <div class="tab-content" id="tab-controls">
+          <div class="grid-2">
+            <div>
+              <!-- Chat -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-cyan)"></span> Chat
+                </div>
+                <div
+                  id="ctrl-chat-history"
+                  style="max-height: 160px; overflow-y: auto; margin-bottom: 10px"
+                ></div>
+                <div class="control-row">
+                  <input
+                    type="text"
+                    id="ctrl-chat-input"
+                    placeholder="Send a message..."
+                    onkeydown="if (event.key === 'Enter') cmdChat();"
+                  />
+                  <button class="btn primary" onclick="cmdChat()">Send</button>
+                </div>
+              </div>
+
+              <!-- Movement -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-blue)"></span> Movement
+                </div>
+                <div class="control-group">
+                  <label>Goto Position</label>
+                  <div class="control-row">
+                    <input type="number" id="ctrl-goto-x" placeholder="x" />
+                    <input type="number" id="ctrl-goto-y" placeholder="y" />
+                    <input type="number" id="ctrl-goto-z" placeholder="z" />
+                    <button class="btn primary" onclick="cmdGoto()">Go</button>
+                  </div>
+                </div>
+                <div class="control-group">
+                  <label>Follow Player</label>
+                  <div class="control-row">
+                    <input type="text" id="ctrl-follow-name" placeholder="player name" />
+                    <input
+                      type="number"
+                      id="ctrl-follow-range"
+                      placeholder="range"
+                      value="2"
+                      style="width: 60px"
+                    />
+                    <button class="btn primary" onclick="cmdFollow()">Follow</button>
+                  </div>
+                </div>
+                <button class="btn danger" onclick="sendCmd('stop')" style="width: 100%">
+                  Stop All Movement
+                </button>
+              </div>
+
+              <!-- Actions -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-amber)"></span> Actions
+                </div>
+                <div class="control-group">
+                  <label>Mine Block</label>
+                  <div class="control-row">
+                    <input type="number" id="ctrl-mine-x" placeholder="x" />
+                    <input type="number" id="ctrl-mine-y" placeholder="y" />
+                    <input type="number" id="ctrl-mine-z" placeholder="z" />
+                    <button class="btn primary" onclick="cmdMine()">Mine</button>
+                  </div>
+                </div>
+                <div class="control-group">
+                  <label>Craft Item</label>
+                  <div class="control-row">
+                    <input type="text" id="ctrl-craft-item" placeholder="item name" />
+                    <input
+                      type="number"
+                      id="ctrl-craft-count"
+                      placeholder="qty"
+                      value="1"
+                      style="width: 60px"
+                    />
+                    <button class="btn primary" onclick="cmdCraft()">Craft</button>
+                  </div>
+                </div>
+                <div class="control-group">
+                  <label>Place Block</label>
+                  <div class="control-row">
+                    <input
+                      type="text"
+                      id="ctrl-place-item"
+                      placeholder="item"
+                      style="width: 100px"
+                    />
+                    <input type="number" id="ctrl-place-x" placeholder="x" />
+                    <input type="number" id="ctrl-place-y" placeholder="y" />
+                    <input type="number" id="ctrl-place-z" placeholder="z" />
+                    <button class="btn primary" onclick="cmdPlace()">Place</button>
+                  </div>
+                </div>
+                <div class="control-group">
+                  <label>Open Container</label>
+                  <div class="control-row">
+                    <input type="number" id="ctrl-open-x" placeholder="x" />
+                    <input type="number" id="ctrl-open-y" placeholder="y" />
+                    <input type="number" id="ctrl-open-z" placeholder="z" />
+                    <button class="btn primary" onclick="cmdOpen()">Open</button>
+                  </div>
+                </div>
+                <div class="result-display" id="ctrl-action-result" style="display: none"></div>
+              </div>
+            </div>
+
+            <div>
+              <!-- Combat -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-red)"></span> Combat
+                </div>
+                <div class="control-group">
+                  <label>Attack Nearest Hostile</label>
+                  <div class="control-row">
+                    <input
+                      type="number"
+                      id="ctrl-attack-dist"
+                      placeholder="distance"
+                      value="16"
+                      style="width: 100px"
+                    />
+                    <button class="btn danger" onclick="cmdAttack()">Attack</button>
+                  </div>
+                </div>
+                <div id="ctrl-hostiles-list" style="margin-top: 8px"></div>
+              </div>
+
+              <!-- Safety -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-red)"></span> Safety
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                  <button class="btn success" onclick="sendCmd('safety:on')">Enable Monitor</button>
+                  <button class="btn danger" onclick="sendCmd('safety:off')">
+                    Disable Monitor
+                  </button>
+                  <button class="btn warning" onclick="sendCmd('safety:now')">Escape Now</button>
+                  <button class="btn" onclick="cmdRetreat()">Retreat</button>
+                </div>
+                <div class="control-group" style="margin-top: 10px">
+                  <label>Retreat Distance</label>
+                  <input type="number" id="ctrl-retreat-dist" value="12" style="width: 80px" />
+                </div>
+              </div>
+
+              <!-- Planner -->
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-purple)"></span> Planner
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                  <button class="btn success" onclick="sendCmd('planner:on')">Enable</button>
+                  <button class="btn danger" onclick="sendCmd('planner:off')">Disable</button>
+                  <button class="btn primary" onclick="sendCmd('planner:now')">Replan Now</button>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-cyan)"></span> Executor
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                  <button class="btn success" onclick="sendCmd('executor:on')">Enable</button>
+                  <button class="btn danger" onclick="sendCmd('executor:off')">Disable</button>
+                  <button class="btn primary" onclick="sendCmd('executor:now')">Step Now</button>
+                </div>
+              </div>
+
+              <!-- Danger Zone -->
+              <div class="card" style="border-color: var(--accent-red-dim)">
+                <div class="card-title">
+                  <span class="indicator" style="background: var(--accent-red)"></span> Danger Zone
+                </div>
+                <button class="btn danger" onclick="if (confirm('Quit the bot?')) sendCmd('quit');">
+                  Quit Bot
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="result-display" id="ctrl-action-result" style="display:none"></div>
-    </div>
-  </div>
-
-  <div>
-    <!-- Combat -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-red)"></span> Combat</div>
-      <div class="control-group">
-        <label>Attack Nearest Hostile</label>
-        <div class="control-row">
-          <input type="number" id="ctrl-attack-dist" placeholder="distance" value="16" style="width:100px">
-          <button class="btn danger" onclick="cmdAttack()">Attack</button>
-        </div>
-      </div>
-      <div id="ctrl-hostiles-list" style="margin-top:8px;"></div>
+      </main>
     </div>
 
-    <!-- Safety -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-red)"></span> Safety</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn success" onclick="sendCmd('safety:on')">Enable Monitor</button>
-        <button class="btn danger" onclick="sendCmd('safety:off')">Disable Monitor</button>
-        <button class="btn warning" onclick="sendCmd('safety:now')">Escape Now</button>
-        <button class="btn" onclick="cmdRetreat()">Retreat</button>
-      </div>
-      <div class="control-group" style="margin-top:10px;">
-        <label>Retreat Distance</label>
-        <input type="number" id="ctrl-retreat-dist" value="12" style="width:80px">
-      </div>
+    <div id="connection-overlay">
+      <div class="msg">Connection Lost</div>
+      <div class="sub">Attempting to reconnect...</div>
     </div>
 
-    <!-- Planner -->
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-purple)"></span> Planner</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn success" onclick="sendCmd('planner:on')">Enable</button>
-        <button class="btn danger" onclick="sendCmd('planner:off')">Disable</button>
-        <button class="btn primary" onclick="sendCmd('planner:now')">Replan Now</button>
-      </div>
-    </div>
+    <script>
+      // ============================================================
+      // State management
+      // ============================================================
+      let state = null;
+      let eventSource = null;
+      let allEvents = [];
+      let activeFilters = new Set();
+      const EVENT_CATEGORIES = {
+        bot: [
+          "bot:login",
+          "bot:spawn",
+          "bot:health",
+          "bot:death",
+          "bot:end",
+          "bot:error",
+          "bot:kicked",
+        ],
+        chat: ["chat:public", "chat:server", "chat:send", "chat:whisper"],
+        action: ["action:start", "action:success", "action:failure"],
+        pathing: [
+          "pathing:plugin_loaded",
+          "pathing:movements_ready",
+          "pathing:follow_started",
+          "pathing:follow_stopped",
+          "pathing:goal_reached",
+          "pathing:goal_updated",
+          "pathing:paused",
+          "pathing:stabilized",
+          "pathing:path_update",
+          "pathing:path_reset",
+          "pathing:path_stop",
+        ],
+        physics: [
+          "physics:enabled",
+          "physics:disabled",
+          "physics:motion_reset",
+          "physics:forced_fall",
+        ],
+        safety: ["safety:self_hurt_stabilize"],
+        entity: ["entity:spawn", "entity:gone", "entity:hurt", "entity:dead"],
+        player: ["player:joined", "player:left"],
+        world: ["world:block_update"],
+        window: ["window:open", "window:close"],
+        planner: [
+          "planner:request",
+          "planner:success",
+          "planner:failure",
+          "planner:skip",
+          "planner:state",
+        ],
+        executor: [
+          "executor:request",
+          "executor:success",
+          "executor:failure",
+          "executor:skip",
+          "executor:state",
+          "executor:wait",
+          "executor:goal_complete",
+          "executor:goal_blocked",
+        ],
+        goal: ["goal:update"],
+        memory: [],
+      };
 
-    <div class="card">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-cyan)"></span> Executor</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn success" onclick="sendCmd('executor:on')">Enable</button>
-        <button class="btn danger" onclick="sendCmd('executor:off')">Disable</button>
-        <button class="btn primary" onclick="sendCmd('executor:now')">Step Now</button>
-      </div>
-    </div>
+      // ============================================================
+      // Tab switching
+      // ============================================================
+      document.querySelectorAll("nav button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll("nav button").forEach((b) => b.classList.remove("active"));
+          document.querySelectorAll(".tab-content").forEach((t) => t.classList.remove("active"));
+          btn.classList.add("active");
+          document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+        });
+      });
 
-    <!-- Danger Zone -->
-    <div class="card" style="border-color:var(--accent-red-dim);">
-      <div class="card-title"><span class="indicator" style="background:var(--accent-red)"></span> Danger Zone</div>
-      <button class="btn danger" onclick="if(confirm('Quit the bot?'))sendCmd('quit')">Quit Bot</button>
-    </div>
-  </div>
-</div>
-</div>
+      // ============================================================
+      // SSE Connection
+      // ============================================================
+      function connect() {
+        if (eventSource) {
+          eventSource.close();
+        }
 
-</main>
-</div>
+        eventSource = new EventSource("/api/events");
 
-<div id="connection-overlay">
-  <div class="msg">Connection Lost</div>
-  <div class="sub">Attempting to reconnect...</div>
-</div>
+        eventSource.addEventListener("state", (e) => {
+          state = JSON.parse(e.data);
+          mergeEvents(state.recentEvents || []);
+          render();
+          document.getElementById("connection-overlay").classList.remove("visible");
+        });
 
-<script>
-// ============================================================
-// State management
-// ============================================================
-let state = null;
-let eventSource = null;
-let allEvents = [];
-let activeFilters = new Set();
-const EVENT_CATEGORIES = {
-  'bot': ['bot:login','bot:spawn','bot:health','bot:death','bot:end','bot:error','bot:kicked'],
-  'chat': ['chat:public','chat:server','chat:send','chat:whisper'],
-  'action': ['action:start','action:success','action:failure'],
-  'pathing': ['pathing:plugin_loaded','pathing:movements_ready','pathing:follow_started','pathing:follow_stopped','pathing:goal_reached','pathing:goal_updated','pathing:paused','pathing:stabilized','pathing:path_update','pathing:path_reset','pathing:path_stop'],
-  'physics': ['physics:enabled','physics:disabled','physics:motion_reset','physics:forced_fall'],
-  'safety': ['safety:self_hurt_stabilize'],
-  'entity': ['entity:spawn','entity:gone','entity:hurt','entity:dead'],
-  'player': ['player:joined','player:left'],
-  'world': ['world:block_update'],
-  'window': ['window:open','window:close'],
-  'planner': ['planner:request','planner:success','planner:failure','planner:skip','planner:state'],
-  'executor': ['executor:request','executor:success','executor:failure','executor:skip','executor:state','executor:wait','executor:goal_complete','executor:goal_blocked'],
-  'goal': ['goal:update'],
-  'memory': [],
-};
+        eventSource.addEventListener("message", (e) => {
+          const event = JSON.parse(e.data);
+          allEvents.push(event);
+          if (allEvents.length > 500) allEvents = allEvents.slice(-400);
+          renderEventFeed();
+          renderRecentActivity();
+        });
 
-// ============================================================
-// Tab switching
-// ============================================================
-document.querySelectorAll('nav button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-  });
-});
+        eventSource.onerror = () => {
+          document.getElementById("connection-overlay").classList.add("visible");
+          setTimeout(connect, 3000);
+        };
+      }
 
-// ============================================================
-// SSE Connection
-// ============================================================
-function connect() {
-  if (eventSource) {
-    eventSource.close();
-  }
+      connect();
 
-  eventSource = new EventSource('/api/events');
+      function mergeEvents(events) {
+        if (!Array.isArray(events) || events.length === 0) return;
+        const seen = new Set(allEvents.map((event) => event.id));
+        const merged = [...allEvents];
+        for (const event of events) {
+          if (seen.has(event.id)) continue;
+          seen.add(event.id);
+          merged.push(event);
+        }
+        merged.sort((a, b) => a.id - b.id);
+        allEvents = merged.length > 500 ? merged.slice(-400) : merged;
+      }
 
-  eventSource.addEventListener('state', (e) => {
-    state = JSON.parse(e.data);
-    mergeEvents(state.recentEvents || []);
-    render();
-    document.getElementById('connection-overlay').classList.remove('visible');
-  });
+      function setDetailText(id, value, fallback = "--") {
+        const el = document.getElementById(id);
+        const text = value || fallback;
+        el.textContent = text;
+        el.title = text;
+      }
 
-  eventSource.addEventListener('message', (e) => {
-    const event = JSON.parse(e.data);
-    allEvents.push(event);
-    if (allEvents.length > 500) allEvents = allEvents.slice(-400);
-    renderEventFeed();
-    renderRecentActivity();
-  });
+      function setResultText(id, value, fallback = "--") {
+        const el = document.getElementById(id);
+        const text = value == null ? fallback : safeStringify(value, fallback);
+        el.textContent = text;
+        el.title = text;
+      }
 
-  eventSource.onerror = () => {
-    document.getElementById('connection-overlay').classList.add('visible');
-    setTimeout(connect, 3000);
-  };
-}
+      function safeStringify(value, fallback = "--") {
+        if (value == null) return fallback;
+        if (typeof value === "string") return value;
+        try {
+          const text = JSON.stringify(value, null, 2);
+          return text == null ? fallback : text;
+        } catch {
+          return String(value);
+        }
+      }
 
-connect();
+      function findLatestEvent(types) {
+        const wanted = new Set(types);
+        for (let i = allEvents.length - 1; i >= 0; i -= 1) {
+          if (wanted.has(allEvents[i].type)) return allEvents[i];
+        }
+        return null;
+      }
 
-function mergeEvents(events) {
-  if (!Array.isArray(events) || events.length === 0) return;
-  const seen = new Set(allEvents.map(event => event.id));
-  const merged = [...allEvents];
-  for (const event of events) {
-    if (seen.has(event.id)) continue;
-    seen.add(event.id);
-    merged.push(event);
-  }
-  merged.sort((a, b) => a.id - b.id);
-  allEvents = merged.length > 500 ? merged.slice(-400) : merged;
-}
+      function formatPosition(pos) {
+        if (!pos) return "--";
+        return `${pos.x}, ${pos.y}, ${pos.z}`;
+      }
 
-function setDetailText(id, value, fallback = '--') {
-  const el = document.getElementById(id);
-  const text = value || fallback;
-  el.textContent = text;
-  el.title = text;
-}
+      function joinPreview(items, fallback = "--", limit = 4) {
+        if (!Array.isArray(items) || items.length === 0) return fallback;
+        return items.slice(0, limit).join(", ");
+      }
 
-function setResultText(id, value, fallback = '--') {
-  const el = document.getElementById(id);
-  const text = value == null ? fallback : safeStringify(value, fallback);
-  el.textContent = text;
-  el.title = text;
-}
+      // ============================================================
+      // API helpers
+      // ============================================================
+      async function sendCmd(command, args) {
+        try {
+          const res = await fetch("/api/command", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ command, args: args || [] }),
+          });
+          const data = await res.json();
+          if (!data.ok) {
+            showToast(data.error || "Command failed", "error");
+          } else {
+            showToast(command + " OK", "success");
+          }
+          return data;
+        } catch (err) {
+          showToast("Network error: " + err.message, "error");
+          return { ok: false, error: err.message };
+        }
+      }
 
-function safeStringify(value, fallback = '--') {
-  if (value == null) return fallback;
-  if (typeof value === 'string') return value;
-  try {
-    const text = JSON.stringify(value, null, 2);
-    return text == null ? fallback : text;
-  } catch {
-    return String(value);
-  }
-}
+      function showToast(msg, type) {
+        const el = document.createElement("div");
+        el.className = "toast " + (type || "");
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 3000);
+      }
 
-function findLatestEvent(types) {
-  const wanted = new Set(types);
-  for (let i = allEvents.length - 1; i >= 0; i -= 1) {
-    if (wanted.has(allEvents[i].type)) return allEvents[i];
-  }
-  return null;
-}
+      // ============================================================
+      // Rendering
+      // ============================================================
+      function render() {
+        if (!state) return;
+        renderSession();
+        renderOverview();
+        renderWorld();
+        renderMemory();
+        renderEventFeed();
+        renderChatHistory();
+        renderHostilesList();
+      }
 
-function formatPosition(pos) {
-  if (!pos) return '--';
-  return `${pos.x}, ${pos.y}, ${pos.z}`;
-}
+      function renderSession() {
+        const s = state.session;
+        document.getElementById("session-server").textContent = s.host + ":" + s.port;
+        document.getElementById("session-user").textContent = s.username;
+        document.getElementById("session-auth").textContent = s.auth;
+        document.getElementById("session-status").textContent = s.status;
 
-function joinPreview(items, fallback = '--', limit = 4) {
-  if (!Array.isArray(items) || items.length === 0) return fallback;
-  return items.slice(0, limit).join(', ');
-}
+        const dot = document.getElementById("status-dot");
+        dot.className = "status-dot";
+        if (s.status === "spawned") dot.classList.add("green");
+        else if (s.status === "logged_in" || s.status === "connecting") dot.classList.add("amber");
+        else dot.classList.add("red");
+      }
 
-// ============================================================
-// API helpers
-// ============================================================
-async function sendCmd(command, args) {
-  try {
-    const res = await fetch('/api/command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command, args: args || [] }),
-    });
-    const data = await res.json();
-    if (!data.ok) {
-      showToast(data.error || 'Command failed', 'error');
-    } else {
-      showToast(command + ' OK', 'success');
-    }
-    return data;
-  } catch (err) {
-    showToast('Network error: ' + err.message, 'error');
-    return { ok: false, error: err.message };
-  }
-}
+      function renderOverview() {
+        const o = state.orchestration;
+        const self = o.self;
+        const safety = state.safety;
 
-function showToast(msg, type) {
-  const el = document.createElement('div');
-  el.className = 'toast ' + (type || '');
-  el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
-}
+        // Stats
+        const hp = self.health ?? 0;
+        const hunger = self.hunger ?? 0;
+        document.getElementById("ov-health").textContent = hp + " / 20";
+        document.getElementById("ov-health").className =
+          "stat-value " + (hp <= 6 ? "red" : hp <= 12 ? "amber" : "green");
+        document.getElementById("ov-health-bar").style.width = (hp / 20) * 100 + "%";
+        document.getElementById("ov-health-bar").className =
+          "bar-fill " + (hp <= 6 ? "red" : hp <= 12 ? "amber" : "green");
 
-// ============================================================
-// Rendering
-// ============================================================
-function render() {
-  if (!state) return;
-  renderSession();
-  renderOverview();
-  renderWorld();
-  renderMemory();
-  renderEventFeed();
-  renderChatHistory();
-  renderHostilesList();
-}
+        document.getElementById("ov-hunger").textContent = hunger + " / 20";
+        document.getElementById("ov-hunger-bar").style.width = (hunger / 20) * 100 + "%";
 
-function renderSession() {
-  const s = state.session;
-  document.getElementById('session-server').textContent = s.host + ':' + s.port;
-  document.getElementById('session-user').textContent = s.username;
-  document.getElementById('session-auth').textContent = s.auth;
-  document.getElementById('session-status').textContent = s.status;
+        const pos = self.position;
+        document.getElementById("ov-position").textContent = pos
+          ? `${pos.x.toFixed(1)}  ${pos.y.toFixed(1)}  ${pos.z.toFixed(1)}`
+          : "-- -- --";
+        document.getElementById("ov-biome").textContent = self.biome || "--";
+        document.getElementById("ov-time").textContent = self.timeOfDay || "--";
 
-  const dot = document.getElementById('status-dot');
-  dot.className = 'status-dot';
-  if (s.status === 'spawned') dot.classList.add('green');
-  else if (s.status === 'logged_in' || s.status === 'connecting') dot.classList.add('amber');
-  else dot.classList.add('red');
-}
+        const risk = self.risk || "low";
+        document.getElementById("ov-risk").textContent = risk.toUpperCase();
+        document.getElementById("ov-risk").className =
+          "stat-value " + ({ high: "red", medium: "amber", low: "green" }[risk] || "green");
 
-function renderOverview() {
-  const o = state.orchestration;
-  const self = o.self;
-  const safety = state.safety;
+        // Goal
+        const goal = o.planning.currentGoal;
+        document.getElementById("ov-goal").textContent = goal || "No goal set";
+        document.getElementById("ov-goal").style.color = goal
+          ? "var(--accent-purple)"
+          : "var(--text-muted)";
 
-  // Stats
-  const hp = self.health ?? 0;
-  const hunger = self.hunger ?? 0;
-  document.getElementById('ov-health').textContent = hp + ' / 20';
-  document.getElementById('ov-health').className = 'stat-value ' + (hp <= 6 ? 'red' : hp <= 12 ? 'amber' : 'green');
-  document.getElementById('ov-health-bar').style.width = (hp / 20 * 100) + '%';
-  document.getElementById('ov-health-bar').className = 'bar-fill ' + (hp <= 6 ? 'red' : hp <= 12 ? 'amber' : 'green');
+        // Safety badges
+        const safetyBadges = [];
+        if (safety.monitorEnabled) safetyBadges.push('<span class="badge green">Monitor On</span>');
+        else safetyBadges.push('<span class="badge muted">Monitor Off</span>');
+        if (safety.inWater) safetyBadges.push('<span class="badge blue">In Water</span>');
+        if (safety.inLava) safetyBadges.push('<span class="badge red">In Lava</span>');
+        if (safety.onFire) safetyBadges.push('<span class="badge red">On Fire</span>');
+        if (safety.drowning) safetyBadges.push('<span class="badge red pulsing">Drowning</span>');
+        if (safety.mobAggro) safetyBadges.push('<span class="badge red pulsing">Mob Aggro</span>');
+        if (safety.recentSelfHurt) safetyBadges.push('<span class="badge amber">Hurt</span>');
+        if (safety.escapeInProgress)
+          safetyBadges.push('<span class="badge amber pulsing">Escaping</span>');
+        document.getElementById("ov-safety-badges").innerHTML = safetyBadges.join("");
 
-  document.getElementById('ov-hunger').textContent = hunger + ' / 20';
-  document.getElementById('ov-hunger-bar').style.width = (hunger / 20 * 100) + '%';
+        document.getElementById("ov-safety-monitor").textContent = safety.monitorEnabled
+          ? "ON"
+          : "OFF";
+        document.getElementById("ov-safety-monitor").style.color = safety.monitorEnabled
+          ? "var(--accent-green)"
+          : "var(--text-muted)";
+        document.getElementById("ov-safety-oxygen").textContent =
+          safety.oxygenLevel != null ? safety.oxygenLevel + " / 300" : "--";
+        document.getElementById("ov-safety-escape").textContent =
+          safety.lastEscape?.action || "None";
 
-  const pos = self.position;
-  document.getElementById('ov-position').textContent = pos
-    ? `${pos.x.toFixed(1)}  ${pos.y.toFixed(1)}  ${pos.z.toFixed(1)}`
-    : '-- -- --';
-  document.getElementById('ov-biome').textContent = self.biome || '--';
-  document.getElementById('ov-time').textContent = self.timeOfDay || '--';
+        const threat = safety.nearestThreat;
+        document.getElementById("ov-safety-threat").innerHTML = threat
+          ? `<span style="color:var(--accent-red)">${esc(threat.name || threat.type || "unknown")}</span> (score: ${safety.nearestThreatScore ?? "?"})`
+          : '<span style="color:var(--text-muted)">None</span>';
 
-  const risk = self.risk || 'low';
-  document.getElementById('ov-risk').textContent = risk.toUpperCase();
-  document.getElementById('ov-risk').className = 'stat-value ' + ({high:'red',medium:'amber',low:'green'}[risk] || 'green');
+        const blocks = safety.blocks;
+        document.getElementById("ov-safety-blocks").textContent = blocks
+          ? `Head: ${blocks.head || "air"} | Feet: ${blocks.feet || "air"} | Ground: ${blocks.ground || "--"}`
+          : "--";
 
-  // Goal
-  const goal = o.planning.currentGoal;
-  document.getElementById('ov-goal').textContent = goal || 'No goal set';
-  document.getElementById('ov-goal').style.color = goal ? 'var(--accent-purple)' : 'var(--text-muted)';
+        // Pathing
+        const p = state.pathing;
+        const pathBadges = [];
+        if (p.moving) pathBadges.push('<span class="badge blue pulsing">Moving</span>');
+        if (p.mining) pathBadges.push('<span class="badge amber">Mining</span>');
+        if (p.building) pathBadges.push('<span class="badge green">Building</span>');
+        if (p.pausedMs > 0)
+          pathBadges.push('<span class="badge muted">Paused ' + p.pausedMs + "ms</span>");
+        if (!p.physicsEnabled) pathBadges.push('<span class="badge muted">Physics Off</span>');
+        if (p.ready) pathBadges.push('<span class="badge green">Ready</span>');
+        document.getElementById("ov-pathing-badges").innerHTML = pathBadges.join("");
 
-  // Safety badges
-  const safetyBadges = [];
-  if (safety.monitorEnabled) safetyBadges.push('<span class="badge green">Monitor On</span>');
-  else safetyBadges.push('<span class="badge muted">Monitor Off</span>');
-  if (safety.inWater) safetyBadges.push('<span class="badge blue">In Water</span>');
-  if (safety.inLava) safetyBadges.push('<span class="badge red">In Lava</span>');
-  if (safety.onFire) safetyBadges.push('<span class="badge red">On Fire</span>');
-  if (safety.drowning) safetyBadges.push('<span class="badge red pulsing">Drowning</span>');
-  if (safety.mobAggro) safetyBadges.push('<span class="badge red pulsing">Mob Aggro</span>');
-  if (safety.recentSelfHurt) safetyBadges.push('<span class="badge amber">Hurt</span>');
-  if (safety.escapeInProgress) safetyBadges.push('<span class="badge amber pulsing">Escaping</span>');
-  document.getElementById('ov-safety-badges').innerHTML = safetyBadges.join('');
+        document.getElementById("ov-pathing-goal").textContent = p.goal || "None";
+        document.getElementById("ov-pathing-physics").textContent = p.physicsEnabled ? "ON" : "OFF";
+        document.getElementById("ov-pathing-physics").style.color = p.physicsEnabled
+          ? "var(--accent-green)"
+          : "var(--text-muted)";
+        document.getElementById("ov-pathing-follow").textContent = p.follow
+          ? `ID ${p.follow.entityId} (r=${p.follow.range})`
+          : "None";
 
-  document.getElementById('ov-safety-monitor').textContent = safety.monitorEnabled ? 'ON' : 'OFF';
-  document.getElementById('ov-safety-monitor').style.color = safety.monitorEnabled ? 'var(--accent-green)' : 'var(--text-muted)';
-  document.getElementById('ov-safety-oxygen').textContent = safety.oxygenLevel != null ? safety.oxygenLevel + ' / 300' : '--';
-  document.getElementById('ov-safety-escape').textContent = safety.lastEscape?.action || 'None';
+        const mv = p.movement || {};
+        const mvBadges = [];
+        if (mv.allowSprinting) mvBadges.push('<span class="badge green">Sprint</span>');
+        if (mv.allowParkour) mvBadges.push('<span class="badge blue">Parkour</span>');
+        if (mv.canDig) mvBadges.push('<span class="badge amber">Dig</span>');
+        if (mv.maxDropDown != null)
+          mvBadges.push('<span class="badge muted">Drop ' + mv.maxDropDown + "</span>");
+        document.getElementById("ov-pathing-movement").innerHTML =
+          mvBadges.join("") || '<span style="color:var(--text-muted)">--</span>';
 
-  const threat = safety.nearestThreat;
-  document.getElementById('ov-safety-threat').innerHTML = threat
-    ? `<span style="color:var(--accent-red)">${esc(threat.name || threat.type || 'unknown')}</span> (score: ${safety.nearestThreatScore ?? '?'})`
-    : '<span style="color:var(--text-muted)">None</span>';
+        // Inventory
+        const inv = state.inventory;
+        document.getElementById("ov-inv-slots").textContent = inv.slotsUsed;
+        document.getElementById("ov-inv-held").textContent = inv.heldItem?.name || "empty";
+        document.getElementById("ov-inv-hotbar").textContent = "Slot " + inv.hotbarSlot;
 
-  const blocks = safety.blocks;
-  document.getElementById('ov-safety-blocks').textContent = blocks
-    ? `Head: ${blocks.head || 'air'} | Feet: ${blocks.feet || 'air'} | Ground: ${blocks.ground || '--'}`
-    : '--';
+        const itemCounts = {};
+        for (const item of inv.items) {
+          if (item && item.name) {
+            itemCounts[item.name] = (itemCounts[item.name] || 0) + (item.count || 1);
+          }
+        }
+        const sorted = Object.entries(itemCounts).sort((a, b) => b[1] - a[1]);
+        if (sorted.length === 0) {
+          document.getElementById("ov-inv-table").innerHTML =
+            '<div class="empty">Empty inventory</div>';
+        } else {
+          let html = '<table class="data-table"><tr><th>Item</th><th>Count</th></tr>';
+          for (const [name, count] of sorted) {
+            html += `<tr><td>${esc(name)}</td><td>${count}</td></tr>`;
+          }
+          html += "</table>";
+          document.getElementById("ov-inv-table").innerHTML = html;
+        }
 
-  // Pathing
-  const p = state.pathing;
-  const pathBadges = [];
-  if (p.moving) pathBadges.push('<span class="badge blue pulsing">Moving</span>');
-  if (p.mining) pathBadges.push('<span class="badge amber">Mining</span>');
-  if (p.building) pathBadges.push('<span class="badge green">Building</span>');
-  if (p.pausedMs > 0) pathBadges.push('<span class="badge muted">Paused ' + p.pausedMs + 'ms</span>');
-  if (!p.physicsEnabled) pathBadges.push('<span class="badge muted">Physics Off</span>');
-  if (p.ready) pathBadges.push('<span class="badge green">Ready</span>');
-  document.getElementById('ov-pathing-badges').innerHTML = pathBadges.join('');
+        // Planner
+        const pl = state.planner;
+        if (pl) {
+          const plBadges = [];
+          plBadges.push(
+            pl.enabled
+              ? '<span class="badge green">Enabled</span>'
+              : '<span class="badge muted">Disabled</span>',
+          );
+          if (pl.inFlight) plBadges.push('<span class="badge purple pulsing">In Flight</span>');
+          document.getElementById("ov-planner-badges").innerHTML = plBadges.join("");
+          document.getElementById("ov-planner-model").textContent = pl.model || "--";
+          document.getElementById("ov-planner-last").textContent = pl.lastPlannedAt
+            ? timeAgo(pl.lastPlannedAt)
+            : "Never";
+        } else {
+          document.getElementById("ov-planner-badges").innerHTML =
+            '<span class="badge muted">Not configured</span>';
+        }
 
-  document.getElementById('ov-pathing-goal').textContent = p.goal || 'None';
-  document.getElementById('ov-pathing-physics').textContent = p.physicsEnabled ? 'ON' : 'OFF';
-  document.getElementById('ov-pathing-physics').style.color = p.physicsEnabled ? 'var(--accent-green)' : 'var(--text-muted)';
-  document.getElementById('ov-pathing-follow').textContent = p.follow ? `ID ${p.follow.entityId} (r=${p.follow.range})` : 'None';
+        // Executor
+        const ex = state.executor;
+        if (ex) {
+          const exBadges = [];
+          exBadges.push(
+            ex.enabled
+              ? '<span class="badge green">Enabled</span>'
+              : '<span class="badge muted">Disabled</span>',
+          );
+          if (ex.inFlight) exBadges.push('<span class="badge cyan pulsing">In Flight</span>');
+          document.getElementById("ov-executor-badges").innerHTML = exBadges.join("");
+          document.getElementById("ov-executor-tool").textContent = ex.lastDecision?.tool || "--";
+          document.getElementById("ov-executor-last").textContent = ex.lastStepAt
+            ? timeAgo(ex.lastStepAt)
+            : "Never";
+        } else {
+          document.getElementById("ov-executor-badges").innerHTML =
+            '<span class="badge muted">Not configured</span>';
+        }
+      }
 
-  const mv = p.movement || {};
-  const mvBadges = [];
-  if (mv.allowSprinting) mvBadges.push('<span class="badge green">Sprint</span>');
-  if (mv.allowParkour) mvBadges.push('<span class="badge blue">Parkour</span>');
-  if (mv.canDig) mvBadges.push('<span class="badge amber">Dig</span>');
-  if (mv.maxDropDown != null) mvBadges.push('<span class="badge muted">Drop ' + mv.maxDropDown + '</span>');
-  document.getElementById('ov-pathing-movement').innerHTML = mvBadges.join('') || '<span style="color:var(--text-muted)">--</span>';
-
-  // Inventory
-  const inv = state.inventory;
-  document.getElementById('ov-inv-slots').textContent = inv.slotsUsed;
-  document.getElementById('ov-inv-held').textContent = inv.heldItem?.name || 'empty';
-  document.getElementById('ov-inv-hotbar').textContent = 'Slot ' + inv.hotbarSlot;
-
-  const itemCounts = {};
-  for (const item of inv.items) {
-    if (item && item.name) {
-      itemCounts[item.name] = (itemCounts[item.name] || 0) + (item.count || 1);
-    }
-  }
-  const sorted = Object.entries(itemCounts).sort((a, b) => b[1] - a[1]);
-  if (sorted.length === 0) {
-    document.getElementById('ov-inv-table').innerHTML = '<div class="empty">Empty inventory</div>';
-  } else {
-    let html = '<table class="data-table"><tr><th>Item</th><th>Count</th></tr>';
-    for (const [name, count] of sorted) {
-      html += `<tr><td>${esc(name)}</td><td>${count}</td></tr>`;
-    }
-    html += '</table>';
-    document.getElementById('ov-inv-table').innerHTML = html;
-  }
-
-  // Planner
-  const pl = state.planner;
-  if (pl) {
-    const plBadges = [];
-    plBadges.push(pl.enabled
-      ? '<span class="badge green">Enabled</span>'
-      : '<span class="badge muted">Disabled</span>');
-    if (pl.inFlight) plBadges.push('<span class="badge purple pulsing">In Flight</span>');
-    document.getElementById('ov-planner-badges').innerHTML = plBadges.join('');
-    document.getElementById('ov-planner-model').textContent = pl.model || '--';
-    document.getElementById('ov-planner-last').textContent = pl.lastPlannedAt ? timeAgo(pl.lastPlannedAt) : 'Never';
-  } else {
-    document.getElementById('ov-planner-badges').innerHTML = '<span class="badge muted">Not configured</span>';
-  }
-
-  // Executor
-  const ex = state.executor;
-  if (ex) {
-    const exBadges = [];
-    exBadges.push(ex.enabled
-      ? '<span class="badge green">Enabled</span>'
-      : '<span class="badge muted">Disabled</span>');
-    if (ex.inFlight) exBadges.push('<span class="badge cyan pulsing">In Flight</span>');
-    document.getElementById('ov-executor-badges').innerHTML = exBadges.join('');
-    document.getElementById('ov-executor-tool').textContent = ex.lastDecision?.tool || '--';
-    document.getElementById('ov-executor-last').textContent = ex.lastStepAt ? timeAgo(ex.lastStepAt) : 'Never';
-  } else {
-    document.getElementById('ov-executor-badges').innerHTML = '<span class="badge muted">Not configured</span>';
-  }
-}
-
-function renderRecentActivity() {
-  const events = allEvents.slice(-15).reverse();
-  if (events.length === 0) {
-    document.getElementById('ov-recent-events').innerHTML = '<div class="empty">No events yet</div>';
-    return;
-  }
-  let html = '';
-  for (const ev of events) {
-    const cat = eventCategory(ev.type);
-    const payloadText = summarize(ev.payload);
-    html += `<div class="event-item">
+      function renderRecentActivity() {
+        const events = allEvents.slice(-15).reverse();
+        if (events.length === 0) {
+          document.getElementById("ov-recent-events").innerHTML =
+            '<div class="empty">No events yet</div>';
+          return;
+        }
+        let html = "";
+        for (const ev of events) {
+          const cat = eventCategory(ev.type);
+          const payloadText = summarize(ev.payload);
+          html += `<div class="event-item">
       <span class="event-time">${formatTime(ev.timestamp)}</span>
       <span class="event-type"><span class="badge ${cat}">${esc(ev.type)}</span></span>
       <span class="event-payload" title="${esc(payloadText)}">${esc(payloadText)}</span>
     </div>`;
-  }
-  document.getElementById('ov-recent-events').innerHTML = html;
-}
+        }
+        document.getElementById("ov-recent-events").innerHTML = html;
+      }
 
-function renderWorld() {
-  if (!state) return;
-  const va = state.orchestration.perception.visibleArea;
+      function renderWorld() {
+        if (!state) return;
+        const va = state.orchestration.perception.visibleArea;
 
-  // Heading
-  document.getElementById('w-heading-card').textContent = va.heading?.cardinal || '--';
-  document.getElementById('w-heading-yaw').textContent = va.heading?.yaw != null ? va.heading.yaw.toFixed(1) : '--';
-  document.getElementById('w-heading-pitch').textContent = va.heading?.pitch != null ? va.heading.pitch.toFixed(1) : '--';
+        // Heading
+        document.getElementById("w-heading-card").textContent = va.heading?.cardinal || "--";
+        document.getElementById("w-heading-yaw").textContent =
+          va.heading?.yaw != null ? va.heading.yaw.toFixed(1) : "--";
+        document.getElementById("w-heading-pitch").textContent =
+          va.heading?.pitch != null ? va.heading.pitch.toFixed(1) : "--";
 
-  // Blocks
-  const blocks = va.visibleBlocks || [];
-  if (blocks.length === 0) {
-    document.getElementById('w-blocks').innerHTML = '<div class="empty">No visible blocks</div>';
-  } else {
-    let html = '<table class="data-table"><tr><th>Block</th><th>Distance</th><th>Position</th></tr>';
-    for (const b of blocks) {
-      const p = b.position;
-      html += `<tr><td>${esc(b.name)}</td><td>${b.distance.toFixed(1)}</td><td>${p ? `${p.x},${p.y},${p.z}` : '--'}</td></tr>`;
-    }
-    html += '</table>';
-    document.getElementById('w-blocks').innerHTML = html;
-  }
+        // Blocks
+        const blocks = va.visibleBlocks || [];
+        if (blocks.length === 0) {
+          document.getElementById("w-blocks").innerHTML =
+            '<div class="empty">No visible blocks</div>';
+        } else {
+          let html =
+            '<table class="data-table"><tr><th>Block</th><th>Distance</th><th>Position</th></tr>';
+          for (const b of blocks) {
+            const p = b.position;
+            html += `<tr><td>${esc(b.name)}</td><td>${b.distance.toFixed(1)}</td><td>${p ? `${p.x},${p.y},${p.z}` : "--"}</td></tr>`;
+          }
+          html += "</table>";
+          document.getElementById("w-blocks").innerHTML = html;
+        }
 
-  // Entities
-  const ents = va.visibleEntities || [];
-  if (ents.length === 0) {
-    document.getElementById('w-entities').innerHTML = '<div class="empty">No visible entities</div>';
-  } else {
-    let html = '<table class="data-table"><tr><th>Entity</th><th>Type</th><th>Dist</th><th>Position</th></tr>';
-    for (const e of ents) {
-      const p = e.position;
-      const isHostile = state.safety.hostiles.some(h => h.id === e.id);
-      html += `<tr class="${isHostile ? 'hostile-row' : ''}"><td>${esc(e.name || e.username || '?')}</td><td>${esc(e.type || e.kind || '--')}</td><td>${e.distance.toFixed(1)}</td><td>${p ? `${p.x.toFixed(0)},${p.y.toFixed(0)},${p.z.toFixed(0)}` : '--'}</td></tr>`;
-    }
-    html += '</table>';
-    document.getElementById('w-entities').innerHTML = html;
-  }
+        // Entities
+        const ents = va.visibleEntities || [];
+        if (ents.length === 0) {
+          document.getElementById("w-entities").innerHTML =
+            '<div class="empty">No visible entities</div>';
+        } else {
+          let html =
+            '<table class="data-table"><tr><th>Entity</th><th>Type</th><th>Dist</th><th>Position</th></tr>';
+          for (const e of ents) {
+            const p = e.position;
+            const isHostile = state.safety.hostiles.some((h) => h.id === e.id);
+            html += `<tr class="${isHostile ? "hostile-row" : ""}"><td>${esc(e.name || e.username || "?")}</td><td>${esc(e.type || e.kind || "--")}</td><td>${e.distance.toFixed(1)}</td><td>${p ? `${p.x.toFixed(0)},${p.y.toFixed(0)},${p.z.toFixed(0)}` : "--"}</td></tr>`;
+          }
+          html += "</table>";
+          document.getElementById("w-entities").innerHTML = html;
+        }
 
-  // Hazards
-  const haz = va.hazards || [];
-  if (haz.length === 0) {
-    document.getElementById('w-hazards').innerHTML = '<div class="empty">No hazards detected</div>';
-  } else {
-    let html = '';
-    for (const h of haz) {
-      html += `<div class="memory-item" style="border-color:var(--accent-red)"><strong style="color:var(--accent-red)">${esc(h.name)}</strong> &mdash; ${esc(h.reason)} <span style="color:var(--text-muted)">(${h.distance.toFixed(1)}m, ${h.category})</span></div>`;
-    }
-    document.getElementById('w-hazards').innerHTML = html;
-  }
+        // Hazards
+        const haz = va.hazards || [];
+        if (haz.length === 0) {
+          document.getElementById("w-hazards").innerHTML =
+            '<div class="empty">No hazards detected</div>';
+        } else {
+          let html = "";
+          for (const h of haz) {
+            html += `<div class="memory-item" style="border-color:var(--accent-red)"><strong style="color:var(--accent-red)">${esc(h.name)}</strong> &mdash; ${esc(h.reason)} <span style="color:var(--text-muted)">(${h.distance.toFixed(1)}m, ${h.category})</span></div>`;
+          }
+          document.getElementById("w-hazards").innerHTML = html;
+        }
 
-  // Highlights
-  const hi = va.highlights || [];
-  if (hi.length === 0) {
-    document.getElementById('w-highlights').innerHTML = '<div class="empty">No highlights</div>';
-  } else {
-    document.getElementById('w-highlights').innerHTML = hi.map(h =>
-      `<div class="memory-item" style="border-color:var(--accent-cyan)">${esc(h)}</div>`
-    ).join('');
-  }
+        // Highlights
+        const hi = va.highlights || [];
+        if (hi.length === 0) {
+          document.getElementById("w-highlights").innerHTML =
+            '<div class="empty">No highlights</div>';
+        } else {
+          document.getElementById("w-highlights").innerHTML = hi
+            .map(
+              (h) =>
+                `<div class="memory-item" style="border-color:var(--accent-cyan)">${esc(h)}</div>`,
+            )
+            .join("");
+        }
 
-  // Focus
-  const fb = va.focus?.blockAtCursor;
-  document.getElementById('w-focus-block').textContent = fb ? `${fb.name} at ${fb.position?.x},${fb.position?.y},${fb.position?.z}` : 'None';
-  const fe = va.focus?.entityAtCursor;
-  document.getElementById('w-focus-entity').textContent = fe ? `${fe.name || fe.username || '?'} (${fe.type || '--'})` : 'None';
-}
+        // Focus
+        const fb = va.focus?.blockAtCursor;
+        document.getElementById("w-focus-block").textContent = fb
+          ? `${fb.name} at ${fb.position?.x},${fb.position?.y},${fb.position?.z}`
+          : "None";
+        const fe = va.focus?.entityAtCursor;
+        document.getElementById("w-focus-entity").textContent = fe
+          ? `${fe.name || fe.username || "?"} (${fe.type || "--"})`
+          : "None";
+      }
 
-function renderMemory() {
-  if (!state) return;
-  const mem = state.orchestration.memory;
-  const perception = state.orchestration.perception;
-  const planning = state.orchestration.planning;
-  const self = state.orchestration.self;
-  const ex = state.executor;
-  const pl = state.planner;
+      function renderMemory() {
+        if (!state) return;
+        const mem = state.orchestration.memory;
+        const perception = state.orchestration.perception;
+        const planning = state.orchestration.planning;
+        const self = state.orchestration.self;
+        const ex = state.executor;
+        const pl = state.planner;
 
-  // Goal
-  const goal = planning.currentGoal;
-  document.getElementById('m-goal').textContent = goal || 'No goal set';
-  document.getElementById('m-goal').style.color = goal ? 'var(--accent-purple)' : 'var(--text-muted)';
+        // Goal
+        const goal = planning.currentGoal;
+        document.getElementById("m-goal").textContent = goal || "No goal set";
+        document.getElementById("m-goal").style.color = goal
+          ? "var(--accent-purple)"
+          : "var(--text-muted)";
 
-  // Planner details
-  if (pl) {
-    const plBadges = [];
-    plBadges.push(pl.enabled ? '<span class="badge green">Enabled</span>' : '<span class="badge muted">Disabled</span>');
-    if (pl.inFlight) plBadges.push('<span class="badge purple pulsing">In Flight</span>');
-    document.getElementById('m-planner-badges').innerHTML = plBadges.join('');
-    document.getElementById('m-planner-model').textContent = pl.model || '--';
-    document.getElementById('m-planner-provider').textContent = pl.provider || '--';
-    document.getElementById('m-planner-last-planned').textContent = pl.lastPlannedAt ? timeAgo(pl.lastPlannedAt) : 'Never';
-    document.getElementById('m-planner-trigger').textContent = pl.lastTrigger || '--';
-    setDetailText('m-planner-error', pl.lastError, 'None');
-    document.getElementById('m-planner-error').style.color = pl.lastError ? 'var(--accent-red)' : 'var(--text-muted)';
-  } else {
-    document.getElementById('m-planner-badges').innerHTML = '<span class="badge muted">Not configured</span>';
-    setDetailText('m-planner-error', null, 'None');
-    document.getElementById('m-planner-error').style.color = 'var(--text-muted)';
-  }
+        // Planner details
+        if (pl) {
+          const plBadges = [];
+          plBadges.push(
+            pl.enabled
+              ? '<span class="badge green">Enabled</span>'
+              : '<span class="badge muted">Disabled</span>',
+          );
+          if (pl.inFlight) plBadges.push('<span class="badge purple pulsing">In Flight</span>');
+          document.getElementById("m-planner-badges").innerHTML = plBadges.join("");
+          document.getElementById("m-planner-model").textContent = pl.model || "--";
+          document.getElementById("m-planner-provider").textContent = pl.provider || "--";
+          document.getElementById("m-planner-last-planned").textContent = pl.lastPlannedAt
+            ? timeAgo(pl.lastPlannedAt)
+            : "Never";
+          document.getElementById("m-planner-trigger").textContent = pl.lastTrigger || "--";
+          setDetailText("m-planner-error", pl.lastError, "None");
+          document.getElementById("m-planner-error").style.color = pl.lastError
+            ? "var(--accent-red)"
+            : "var(--text-muted)";
+        } else {
+          document.getElementById("m-planner-badges").innerHTML =
+            '<span class="badge muted">Not configured</span>';
+          setDetailText("m-planner-error", null, "None");
+          document.getElementById("m-planner-error").style.color = "var(--text-muted)";
+        }
 
-  // Executor details
-  if (ex) {
-    const exBadges = [];
-    exBadges.push(ex.enabled ? '<span class="badge green">Enabled</span>' : '<span class="badge muted">Disabled</span>');
-    if (ex.inFlight) exBadges.push('<span class="badge cyan pulsing">In Flight</span>');
-    document.getElementById('m-executor-badges').innerHTML = exBadges.join('');
-    document.getElementById('m-executor-model').textContent = ex.model || '--';
-    document.getElementById('m-executor-provider').textContent = ex.provider || '--';
-    document.getElementById('m-executor-last-step').textContent = ex.lastStepAt ? timeAgo(ex.lastStepAt) : 'Never';
-    document.getElementById('m-executor-trigger').textContent = ex.lastTrigger || '--';
-    document.getElementById('m-executor-tool').textContent = ex.lastDecision?.tool || '--';
-    setDetailText('m-executor-error', ex.lastError, 'None');
-    document.getElementById('m-executor-error').style.color = ex.lastError ? 'var(--accent-red)' : 'var(--text-muted)';
-  } else {
-    document.getElementById('m-executor-badges').innerHTML = '<span class="badge muted">Not configured</span>';
-    setDetailText('m-executor-error', null, 'None');
-    document.getElementById('m-executor-error').style.color = 'var(--text-muted)';
-  }
+        // Executor details
+        if (ex) {
+          const exBadges = [];
+          exBadges.push(
+            ex.enabled
+              ? '<span class="badge green">Enabled</span>'
+              : '<span class="badge muted">Disabled</span>',
+          );
+          if (ex.inFlight) exBadges.push('<span class="badge cyan pulsing">In Flight</span>');
+          document.getElementById("m-executor-badges").innerHTML = exBadges.join("");
+          document.getElementById("m-executor-model").textContent = ex.model || "--";
+          document.getElementById("m-executor-provider").textContent = ex.provider || "--";
+          document.getElementById("m-executor-last-step").textContent = ex.lastStepAt
+            ? timeAgo(ex.lastStepAt)
+            : "Never";
+          document.getElementById("m-executor-trigger").textContent = ex.lastTrigger || "--";
+          document.getElementById("m-executor-tool").textContent = ex.lastDecision?.tool || "--";
+          setDetailText("m-executor-error", ex.lastError, "None");
+          document.getElementById("m-executor-error").style.color = ex.lastError
+            ? "var(--accent-red)"
+            : "var(--text-muted)";
+        } else {
+          document.getElementById("m-executor-badges").innerHTML =
+            '<span class="badge muted">Not configured</span>';
+          setDetailText("m-executor-error", null, "None");
+          document.getElementById("m-executor-error").style.color = "var(--text-muted)";
+        }
 
-  const visibleArea = perception.visibleArea || {};
-  const contextPerception = [
-    `nearby blocks: ${(perception.nearbyBlocks || []).length}`,
-    `nearby entities: ${(perception.nearbyEntities || []).length}`,
-    `hostiles: ${(perception.hostiles || []).length}`,
-    `hazards: ${(visibleArea.hazards || []).length}`,
-    `containers: ${(perception.containers || []).length}`,
-    `shelters: ${(perception.shelters || []).length}`,
-    `focus block: ${visibleArea.focus?.blockAtCursor?.name || 'none'}`,
-    `focus entity: ${visibleArea.focus?.entityAtCursor?.name || visibleArea.focus?.entityAtCursor?.username || 'none'}`,
-  ].join(' | ');
+        const visibleArea = perception.visibleArea || {};
+        const contextPerception = [
+          `nearby blocks: ${(perception.nearbyBlocks || []).length}`,
+          `nearby entities: ${(perception.nearbyEntities || []).length}`,
+          `hostiles: ${(perception.hostiles || []).length}`,
+          `hazards: ${(visibleArea.hazards || []).length}`,
+          `containers: ${(perception.containers || []).length}`,
+          `shelters: ${(perception.shelters || []).length}`,
+          `focus block: ${visibleArea.focus?.blockAtCursor?.name || "none"}`,
+          `focus entity: ${visibleArea.focus?.entityAtCursor?.name || visibleArea.focus?.entityAtCursor?.username || "none"}`,
+        ].join(" | ");
 
-  document.getElementById('m-context-goal').textContent = planning.currentGoal || 'None';
-  document.getElementById('m-context-risk').textContent = self.risk || '--';
-  document.getElementById('m-context-risk').style.color =
-    self.risk === 'high' ? 'var(--accent-red)' : self.risk === 'medium' ? 'var(--accent-amber)' : 'var(--accent-green)';
-  document.getElementById('m-context-position').textContent = formatPosition(self.position);
-  document.getElementById('m-context-biome').textContent = self.biome || '--';
-  setDetailText('m-context-perception', contextPerception, '--');
-  setDetailText('m-context-chat', joinPreview(perception.recentChat, 'No recent chat'), 'No recent chat');
-  setResultText('m-context-json', {
-    goal: planning.currentGoal,
-    self,
-    perception: {
-      nearbyBlocks: perception.nearbyBlocks,
-      nearbyEntities: perception.nearbyEntities,
-      hostiles: perception.hostiles,
-      recentChat: perception.recentChat,
-      recentEvents: perception.recentEvents,
-      shelters: perception.shelters,
-      containers: perception.containers,
-      visibleArea,
-    },
-    memory: {
-      working: (mem.working || []).slice(-8),
-      summaries: (mem.shortTerm?.summaries || []).slice(-5),
-      recentFailures: planning.recentFailures || [],
-    },
-  });
+        document.getElementById("m-context-goal").textContent = planning.currentGoal || "None";
+        document.getElementById("m-context-risk").textContent = self.risk || "--";
+        document.getElementById("m-context-risk").style.color =
+          self.risk === "high"
+            ? "var(--accent-red)"
+            : self.risk === "medium"
+              ? "var(--accent-amber)"
+              : "var(--accent-green)";
+        document.getElementById("m-context-position").textContent = formatPosition(self.position);
+        document.getElementById("m-context-biome").textContent = self.biome || "--";
+        setDetailText("m-context-perception", contextPerception, "--");
+        setDetailText(
+          "m-context-chat",
+          joinPreview(perception.recentChat, "No recent chat"),
+          "No recent chat",
+        );
+        setResultText("m-context-json", {
+          goal: planning.currentGoal,
+          self,
+          perception: {
+            nearbyBlocks: perception.nearbyBlocks,
+            nearbyEntities: perception.nearbyEntities,
+            hostiles: perception.hostiles,
+            recentChat: perception.recentChat,
+            recentEvents: perception.recentEvents,
+            shelters: perception.shelters,
+            containers: perception.containers,
+            visibleArea,
+          },
+          memory: {
+            working: (mem.working || []).slice(-8),
+            summaries: (mem.shortTerm?.summaries || []).slice(-5),
+            recentFailures: planning.recentFailures || [],
+          },
+        });
 
-  const latestExecutorEvent = findLatestEvent([
-    'executor:success',
-    'executor:failure',
-    'executor:skip',
-    'executor:wait',
-    'executor:goal_complete',
-    'executor:goal_blocked',
-    'executor:state',
-    'executor:request',
-  ]);
-  const latestExecutorSuccess = findLatestEvent(['executor:success']);
-  const tracePayload = latestExecutorEvent?.payload || {};
-  const successPayload = latestExecutorSuccess?.payload || {};
-  const traceBadges = [];
+        const latestExecutorEvent = findLatestEvent([
+          "executor:success",
+          "executor:failure",
+          "executor:skip",
+          "executor:wait",
+          "executor:goal_complete",
+          "executor:goal_blocked",
+          "executor:state",
+          "executor:request",
+        ]);
+        const latestExecutorSuccess = findLatestEvent(["executor:success"]);
+        const tracePayload = latestExecutorEvent?.payload || {};
+        const successPayload = latestExecutorSuccess?.payload || {};
+        const traceBadges = [];
 
-  if (latestExecutorEvent) {
-    const traceType = latestExecutorEvent.type.split(':')[1] || latestExecutorEvent.type;
-    const badgeTone =
-      latestExecutorEvent.type === 'executor:success' ? 'green' :
-      latestExecutorEvent.type === 'executor:failure' ? 'red' :
-      latestExecutorEvent.type === 'executor:skip' ? 'amber' :
-      latestExecutorEvent.type === 'executor:request' ? 'cyan' : 'blue';
-    traceBadges.push(`<span class="badge ${badgeTone}">${esc(traceType.replaceAll('_', ' '))}</span>`);
-  } else {
-    traceBadges.push('<span class="badge muted">No executor events</span>');
-  }
+        if (latestExecutorEvent) {
+          const traceType = latestExecutorEvent.type.split(":")[1] || latestExecutorEvent.type;
+          const badgeTone =
+            latestExecutorEvent.type === "executor:success"
+              ? "green"
+              : latestExecutorEvent.type === "executor:failure"
+                ? "red"
+                : latestExecutorEvent.type === "executor:skip"
+                  ? "amber"
+                  : latestExecutorEvent.type === "executor:request"
+                    ? "cyan"
+                    : "blue";
+          traceBadges.push(
+            `<span class="badge ${badgeTone}">${esc(traceType.replaceAll("_", " "))}</span>`,
+          );
+        } else {
+          traceBadges.push('<span class="badge muted">No executor events</span>');
+        }
 
-  if (successPayload.tool) {
-    traceBadges.push(`<span class="badge cyan">${esc(successPayload.tool)}</span>`);
-  }
+        if (successPayload.tool) {
+          traceBadges.push(`<span class="badge cyan">${esc(successPayload.tool)}</span>`);
+        }
 
-  if (successPayload.outcome) {
-    traceBadges.push(`<span class="badge blue">${esc(String(successPayload.outcome))}</span>`);
-  }
+        if (successPayload.outcome) {
+          traceBadges.push(
+            `<span class="badge blue">${esc(String(successPayload.outcome))}</span>`,
+          );
+        }
 
-  document.getElementById('m-executor-trace-badges').innerHTML = traceBadges.join('');
-  document.getElementById('m-executor-trace-event').textContent = latestExecutorEvent?.type || '--';
-  document.getElementById('m-executor-trace-time').textContent = latestExecutorEvent?.timestamp ? timeAgo(latestExecutorEvent.timestamp) : '--';
-  document.getElementById('m-executor-trace-trigger').textContent = tracePayload.trigger || successPayload.trigger || '--';
-  document.getElementById('m-executor-trace-outcome').textContent = successPayload.outcome || tracePayload.reason || '--';
-  setResultText('m-executor-trace-args', successPayload.args, 'No successful tool call yet');
-  setResultText(
-    'm-executor-trace-result',
-    successPayload.result ?? tracePayload.error ?? tracePayload.reason ?? tracePayload,
-    'No executor result yet',
-  );
+        document.getElementById("m-executor-trace-badges").innerHTML = traceBadges.join("");
+        document.getElementById("m-executor-trace-event").textContent =
+          latestExecutorEvent?.type || "--";
+        document.getElementById("m-executor-trace-time").textContent =
+          latestExecutorEvent?.timestamp ? timeAgo(latestExecutorEvent.timestamp) : "--";
+        document.getElementById("m-executor-trace-trigger").textContent =
+          tracePayload.trigger || successPayload.trigger || "--";
+        document.getElementById("m-executor-trace-outcome").textContent =
+          successPayload.outcome || tracePayload.reason || "--";
+        setResultText("m-executor-trace-args", successPayload.args, "No successful tool call yet");
+        setResultText(
+          "m-executor-trace-result",
+          successPayload.result ?? tracePayload.error ?? tracePayload.reason ?? tracePayload,
+          "No executor result yet",
+        );
 
-  // Working memory
-  const working = mem.working || [];
-  if (working.length === 0) {
-    document.getElementById('m-working').innerHTML = '<div class="empty">No working memory items</div>';
-  } else {
-    document.getElementById('m-working').innerHTML = working.map(w =>
-      `<div class="memory-item" style="border-color:${w.priority >= 8 ? 'var(--accent-red)' : w.priority >= 5 ? 'var(--accent-amber)' : 'var(--accent-blue)'}">
+        // Working memory
+        const working = mem.working || [];
+        if (working.length === 0) {
+          document.getElementById("m-working").innerHTML =
+            '<div class="empty">No working memory items</div>';
+        } else {
+          document.getElementById("m-working").innerHTML = working
+            .map(
+              (w) =>
+                `<div class="memory-item" style="border-color:${w.priority >= 8 ? "var(--accent-red)" : w.priority >= 5 ? "var(--accent-amber)" : "var(--accent-blue)"}">
         ${esc(w.text)}
-        <div class="meta">priority: ${w.priority} | ${timeAgo(w.timestamp)}${w.expiresAt ? ' | expires: ' + timeAgo(w.expiresAt) : ''}</div>
-        <div class="tags">${w.tags.map(t => `<span class="badge muted">${esc(t)}</span>`).join('')}</div>
-      </div>`
-    ).join('');
-  }
+        <div class="meta">priority: ${w.priority} | ${timeAgo(w.timestamp)}${w.expiresAt ? " | expires: " + timeAgo(w.expiresAt) : ""}</div>
+        <div class="tags">${w.tags.map((t) => `<span class="badge muted">${esc(t)}</span>`).join("")}</div>
+      </div>`,
+            )
+            .join("");
+        }
 
-  // Short-term events
-  const stEvents = (mem.shortTerm?.events || []).slice(-30).reverse();
-  if (stEvents.length === 0) {
-    document.getElementById('m-st-events').innerHTML = '<div class="empty">No short-term events</div>';
-  } else {
-    document.getElementById('m-st-events').innerHTML = stEvents.map(e =>
-      `<div class="event-item">
+        // Short-term events
+        const stEvents = (mem.shortTerm?.events || []).slice(-30).reverse();
+        if (stEvents.length === 0) {
+          document.getElementById("m-st-events").innerHTML =
+            '<div class="empty">No short-term events</div>';
+        } else {
+          document.getElementById("m-st-events").innerHTML = stEvents
+            .map(
+              (e) =>
+                `<div class="event-item">
         <span class="event-time">${formatTime(e.timestamp)}</span>
         <span class="event-type"><span class="badge ${eventCategory(e.type)}">${esc(e.type)}</span></span>
         <span class="event-payload">${esc(e.text)}</span>
-      </div>`
-    ).join('');
-  }
+      </div>`,
+            )
+            .join("");
+        }
 
-  // Summaries
-  const summaries = (mem.shortTerm?.summaries || []).slice(-10).reverse();
-  if (summaries.length === 0) {
-    document.getElementById('m-summaries').innerHTML = '<div class="empty">No summaries yet</div>';
-  } else {
-    document.getElementById('m-summaries').innerHTML = summaries.map(s =>
-      `<div class="memory-item" style="border-color:var(--accent-blue)">
+        // Summaries
+        const summaries = (mem.shortTerm?.summaries || []).slice(-10).reverse();
+        if (summaries.length === 0) {
+          document.getElementById("m-summaries").innerHTML =
+            '<div class="empty">No summaries yet</div>';
+        } else {
+          document.getElementById("m-summaries").innerHTML = summaries
+            .map(
+              (s) =>
+                `<div class="memory-item" style="border-color:var(--accent-blue)">
         ${esc(s.text)}
         <div class="meta">${timeAgo(s.timestamp)}</div>
-        <div class="tags">${s.tags.map(t => `<span class="badge muted">${esc(t)}</span>`).join('')}</div>
-      </div>`
-    ).join('');
-  }
+        <div class="tags">${s.tags.map((t) => `<span class="badge muted">${esc(t)}</span>`).join("")}</div>
+      </div>`,
+            )
+            .join("");
+        }
 
-  // Recent failures
-  const failures = planning.recentFailures || [];
-  if (failures.length === 0) {
-    document.getElementById('m-failures').innerHTML = '<div class="empty">No recent failures</div>';
-  } else {
-    document.getElementById('m-failures').innerHTML = failures.map(f =>
-      `<div class="memory-item" style="border-color:var(--accent-red)">
+        // Recent failures
+        const failures = planning.recentFailures || [];
+        if (failures.length === 0) {
+          document.getElementById("m-failures").innerHTML =
+            '<div class="empty">No recent failures</div>';
+        } else {
+          document.getElementById("m-failures").innerHTML = failures
+            .map(
+              (f) =>
+                `<div class="memory-item" style="border-color:var(--accent-red)">
         ${esc(f.text)}
         <div class="meta">priority: ${f.priority} | ${timeAgo(f.timestamp)}</div>
-      </div>`
-    ).join('');
-  }
-}
+      </div>`,
+            )
+            .join("");
+        }
+      }
 
-function renderEventFeed() {
-  // Build filter chips
-  const filterEl = document.getElementById('event-filters');
-  if (filterEl.children.length === 0) {
-    for (const cat of Object.keys(EVENT_CATEGORIES)) {
-      const chip = document.createElement('button');
-      chip.className = 'filter-chip active';
-      chip.textContent = cat;
-      chip.dataset.category = cat;
-      chip.onclick = () => {
-        chip.classList.toggle('active');
-        if (chip.classList.contains('active')) activeFilters.delete(cat);
-        else activeFilters.add(cat);
-        renderEventFeed();
-      };
-      filterEl.appendChild(chip);
-    }
-  }
+      function renderEventFeed() {
+        // Build filter chips
+        const filterEl = document.getElementById("event-filters");
+        if (filterEl.children.length === 0) {
+          for (const cat of Object.keys(EVENT_CATEGORIES)) {
+            const chip = document.createElement("button");
+            chip.className = "filter-chip active";
+            chip.textContent = cat;
+            chip.dataset.category = cat;
+            chip.onclick = () => {
+              chip.classList.toggle("active");
+              if (chip.classList.contains("active")) activeFilters.delete(cat);
+              else activeFilters.add(cat);
+              renderEventFeed();
+            };
+            filterEl.appendChild(chip);
+          }
+        }
 
-  const events = allEvents.filter(ev => {
-    if (activeFilters.size === 0) return true;
-    const cat = ev.type.split(':')[0];
-    return !activeFilters.has(cat);
-  }).slice(-200).reverse();
+        const events = allEvents
+          .filter((ev) => {
+            if (activeFilters.size === 0) return true;
+            const cat = ev.type.split(":")[0];
+            return !activeFilters.has(cat);
+          })
+          .slice(-200)
+          .reverse();
 
-  if (events.length === 0) {
-    document.getElementById('event-list').innerHTML = '<div class="empty">No events match filters</div>';
-    return;
-  }
+        if (events.length === 0) {
+          document.getElementById("event-list").innerHTML =
+            '<div class="empty">No events match filters</div>';
+          return;
+        }
 
-  let html = '';
-  for (const ev of events) {
-    const cat = eventCategory(ev.type);
-    const payloadText = summarize(ev.payload, { truncateValues: false });
-    html += `<div class="event-item">
+        let html = "";
+        for (const ev of events) {
+          const cat = eventCategory(ev.type);
+          const payloadText = summarize(ev.payload, { truncateValues: false });
+          html += `<div class="event-item">
       <span class="event-time">${formatTime(ev.timestamp)}</span>
       <span class="event-type"><span class="badge ${cat}">${esc(ev.type)}</span></span>
       <span class="event-payload" title="${esc(payloadText)}">${esc(payloadText)}</span>
     </div>`;
-  }
-  document.getElementById('event-list').innerHTML = html;
-}
+        }
+        document.getElementById("event-list").innerHTML = html;
+      }
 
-function renderChatHistory() {
-  const chat = state.chatHistory || [];
-  if (chat.length === 0) {
-    document.getElementById('ctrl-chat-history').innerHTML = '<div class="empty">No chat messages</div>';
-    return;
-  }
-  let html = '';
-  for (const msg of chat.slice(-20)) {
-    const who = msg.username || 'server';
-    const channelColor = msg.channel === 'server' ? 'var(--text-muted)' : 'var(--accent-cyan)';
-    html += `<div style="font-size:11px;margin-bottom:3px;"><span style="color:${channelColor}">&lt;${esc(who)}&gt;</span> ${esc(msg.text)}</div>`;
-  }
-  document.getElementById('ctrl-chat-history').innerHTML = html;
-}
+      function renderChatHistory() {
+        const chat = state.chatHistory || [];
+        if (chat.length === 0) {
+          document.getElementById("ctrl-chat-history").innerHTML =
+            '<div class="empty">No chat messages</div>';
+          return;
+        }
+        let html = "";
+        for (const msg of chat.slice(-20)) {
+          const who = msg.username || "server";
+          const channelColor =
+            msg.channel === "server" ? "var(--text-muted)" : "var(--accent-cyan)";
+          html += `<div style="font-size:11px;margin-bottom:3px;"><span style="color:${channelColor}">&lt;${esc(who)}&gt;</span> ${esc(msg.text)}</div>`;
+        }
+        document.getElementById("ctrl-chat-history").innerHTML = html;
+      }
 
-function renderHostilesList() {
-  const hostiles = state.safety.hostiles || [];
-  if (hostiles.length === 0) {
-    document.getElementById('ctrl-hostiles-list').innerHTML = '<div style="font-size:11px;color:var(--text-muted)">No hostiles nearby</div>';
-    return;
-  }
-  let html = '<table class="data-table"><tr><th>Name</th><th>Dist</th></tr>';
-  for (const h of hostiles) {
-    html += `<tr class="hostile-row"><td>${esc(h.name || h.type || '?')}</td><td>${h.distance.toFixed(1)}</td></tr>`;
-  }
-  html += '</table>';
-  document.getElementById('ctrl-hostiles-list').innerHTML = html;
-}
+      function renderHostilesList() {
+        const hostiles = state.safety.hostiles || [];
+        if (hostiles.length === 0) {
+          document.getElementById("ctrl-hostiles-list").innerHTML =
+            '<div style="font-size:11px;color:var(--text-muted)">No hostiles nearby</div>';
+          return;
+        }
+        let html = '<table class="data-table"><tr><th>Name</th><th>Dist</th></tr>';
+        for (const h of hostiles) {
+          html += `<tr class="hostile-row"><td>${esc(h.name || h.type || "?")}</td><td>${h.distance.toFixed(1)}</td></tr>`;
+        }
+        html += "</table>";
+        document.getElementById("ctrl-hostiles-list").innerHTML = html;
+      }
 
-// ============================================================
-// Command handlers
-// ============================================================
-function cmdChat() {
-  const input = document.getElementById('ctrl-chat-input');
-  if (!input.value.trim()) return;
-  sendCmd('chat', [input.value.trim()]);
-  input.value = '';
-}
+      // ============================================================
+      // Command handlers
+      // ============================================================
+      function cmdChat() {
+        const input = document.getElementById("ctrl-chat-input");
+        if (!input.value.trim()) return;
+        sendCmd("chat", [input.value.trim()]);
+        input.value = "";
+      }
 
-function cmdGoto() {
-  const x = document.getElementById('ctrl-goto-x').value;
-  const y = document.getElementById('ctrl-goto-y').value;
-  const z = document.getElementById('ctrl-goto-z').value;
-  if (!x || !y || !z) return showToast('x, y, z required', 'error');
-  sendCmd('goto', [x, y, z]);
-}
+      function cmdGoto() {
+        const x = document.getElementById("ctrl-goto-x").value;
+        const y = document.getElementById("ctrl-goto-y").value;
+        const z = document.getElementById("ctrl-goto-z").value;
+        if (!x || !y || !z) return showToast("x, y, z required", "error");
+        sendCmd("goto", [x, y, z]);
+      }
 
-function cmdFollow() {
-  const name = document.getElementById('ctrl-follow-name').value;
-  const range = document.getElementById('ctrl-follow-range').value;
-  if (!name) return showToast('Player name required', 'error');
-  sendCmd('follow', [name, range]);
-}
+      function cmdFollow() {
+        const name = document.getElementById("ctrl-follow-name").value;
+        const range = document.getElementById("ctrl-follow-range").value;
+        if (!name) return showToast("Player name required", "error");
+        sendCmd("follow", [name, range]);
+      }
 
-function cmdMine() {
-  const x = document.getElementById('ctrl-mine-x').value;
-  const y = document.getElementById('ctrl-mine-y').value;
-  const z = document.getElementById('ctrl-mine-z').value;
-  if (!x || !y || !z) return showToast('x, y, z required', 'error');
-  sendCmd('mine', [x, y, z]);
-}
+      function cmdMine() {
+        const x = document.getElementById("ctrl-mine-x").value;
+        const y = document.getElementById("ctrl-mine-y").value;
+        const z = document.getElementById("ctrl-mine-z").value;
+        if (!x || !y || !z) return showToast("x, y, z required", "error");
+        sendCmd("mine", [x, y, z]);
+      }
 
-function cmdCraft() {
-  const item = document.getElementById('ctrl-craft-item').value;
-  const count = document.getElementById('ctrl-craft-count').value;
-  if (!item) return showToast('Item name required', 'error');
-  sendCmd('craft', [item, count]);
-}
+      function cmdCraft() {
+        const item = document.getElementById("ctrl-craft-item").value;
+        const count = document.getElementById("ctrl-craft-count").value;
+        if (!item) return showToast("Item name required", "error");
+        sendCmd("craft", [item, count]);
+      }
 
-function cmdPlace() {
-  const item = document.getElementById('ctrl-place-item').value;
-  const x = document.getElementById('ctrl-place-x').value;
-  const y = document.getElementById('ctrl-place-y').value;
-  const z = document.getElementById('ctrl-place-z').value;
-  if (!item || !x || !y || !z) return showToast('item, x, y, z required', 'error');
-  sendCmd('place', [item, x, y, z]);
-}
+      function cmdPlace() {
+        const item = document.getElementById("ctrl-place-item").value;
+        const x = document.getElementById("ctrl-place-x").value;
+        const y = document.getElementById("ctrl-place-y").value;
+        const z = document.getElementById("ctrl-place-z").value;
+        if (!item || !x || !y || !z) return showToast("item, x, y, z required", "error");
+        sendCmd("place", [item, x, y, z]);
+      }
 
-function cmdOpen() {
-  const x = document.getElementById('ctrl-open-x').value;
-  const y = document.getElementById('ctrl-open-y').value;
-  const z = document.getElementById('ctrl-open-z').value;
-  if (!x || !y || !z) return showToast('x, y, z required', 'error');
-  sendCmd('open', [x, y, z]).then(r => {
-    if (r.ok && r.result) {
-      document.getElementById('ctrl-action-result').style.display = 'block';
-      document.getElementById('ctrl-action-result').textContent = JSON.stringify(r.result, null, 2);
-    }
-  });
-}
+      function cmdOpen() {
+        const x = document.getElementById("ctrl-open-x").value;
+        const y = document.getElementById("ctrl-open-y").value;
+        const z = document.getElementById("ctrl-open-z").value;
+        if (!x || !y || !z) return showToast("x, y, z required", "error");
+        sendCmd("open", [x, y, z]).then((r) => {
+          if (r.ok && r.result) {
+            document.getElementById("ctrl-action-result").style.display = "block";
+            document.getElementById("ctrl-action-result").textContent = JSON.stringify(
+              r.result,
+              null,
+              2,
+            );
+          }
+        });
+      }
 
-function cmdAttack() {
-  const dist = document.getElementById('ctrl-attack-dist').value;
-  sendCmd('attack', [dist]);
-}
+      function cmdAttack() {
+        const dist = document.getElementById("ctrl-attack-dist").value;
+        sendCmd("attack", [dist]);
+      }
 
-function cmdRetreat() {
-  const dist = document.getElementById('ctrl-retreat-dist').value;
-  sendCmd('retreat', [dist]);
-}
+      function cmdRetreat() {
+        const dist = document.getElementById("ctrl-retreat-dist").value;
+        sendCmd("retreat", [dist]);
+      }
 
-function cmdGoalSet() {
-  const input = document.getElementById('m-goal-input');
-  if (!input.value.trim()) return showToast('Goal text required', 'error');
-  sendCmd('goal:set', [input.value.trim()]);
-  input.value = '';
-}
+      function cmdGoalSet() {
+        const input = document.getElementById("m-goal-input");
+        if (!input.value.trim()) return showToast("Goal text required", "error");
+        sendCmd("goal:set", [input.value.trim()]);
+        input.value = "";
+      }
 
-function cmdGoalClear() {
-  sendCmd('goal:clear');
-}
+      function cmdGoalClear() {
+        sendCmd("goal:clear");
+      }
 
-async function cmdBlockLookup() {
-  const x = document.getElementById('w-blk-x').value;
-  const y = document.getElementById('w-blk-y').value;
-  const z = document.getElementById('w-blk-z').value;
-  if (!x || !y || !z) return showToast('x, y, z required', 'error');
-  const r = await sendCmd('block', [x, y, z]);
-  const el = document.getElementById('w-blk-result');
-  el.style.display = 'block';
-  el.textContent = r.ok ? JSON.stringify(r.result, null, 2) : (r.error || 'Error');
-}
+      async function cmdBlockLookup() {
+        const x = document.getElementById("w-blk-x").value;
+        const y = document.getElementById("w-blk-y").value;
+        const z = document.getElementById("w-blk-z").value;
+        if (!x || !y || !z) return showToast("x, y, z required", "error");
+        const r = await sendCmd("block", [x, y, z]);
+        const el = document.getElementById("w-blk-result");
+        el.style.display = "block";
+        el.textContent = r.ok ? JSON.stringify(r.result, null, 2) : r.error || "Error";
+      }
 
-async function cmdFindBlock() {
-  const name = document.getElementById('w-find-name').value;
-  const dist = document.getElementById('w-find-dist').value;
-  if (!name) return showToast('Block name required', 'error');
-  const r = await sendCmd('findblock', [name, dist]);
-  const el = document.getElementById('w-find-result');
-  el.style.display = 'block';
-  el.textContent = r.ok ? JSON.stringify(r.result, null, 2) : (r.error || 'Error');
-}
+      async function cmdFindBlock() {
+        const name = document.getElementById("w-find-name").value;
+        const dist = document.getElementById("w-find-dist").value;
+        if (!name) return showToast("Block name required", "error");
+        const r = await sendCmd("findblock", [name, dist]);
+        const el = document.getElementById("w-find-result");
+        el.style.display = "block";
+        el.textContent = r.ok ? JSON.stringify(r.result, null, 2) : r.error || "Error";
+      }
 
-// ============================================================
-// Utilities
-// ============================================================
-function esc(s) {
-  if (s == null) return '';
-  const d = document.createElement('div');
-  d.textContent = String(s);
-  return d.innerHTML;
-}
+      // ============================================================
+      // Utilities
+      // ============================================================
+      function esc(s) {
+        if (s == null) return "";
+        const d = document.createElement("div");
+        d.textContent = String(s);
+        return d.innerHTML;
+      }
 
-function formatTime(iso) {
-  if (!iso) return '--';
-  const d = new Date(iso);
-  return d.toLocaleTimeString('en-GB', { hour12: false });
-}
+      function formatTime(iso) {
+        if (!iso) return "--";
+        const d = new Date(iso);
+        return d.toLocaleTimeString("en-GB", { hour12: false });
+      }
 
-function timeAgo(iso) {
-  if (!iso) return '--';
-  const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 1000) return 'just now';
-  if (diff < 60000) return Math.floor(diff / 1000) + 's ago';
-  if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
-  return Math.floor(diff / 3600000) + 'h ago';
-}
+      function timeAgo(iso) {
+        if (!iso) return "--";
+        const diff = Date.now() - new Date(iso).getTime();
+        if (diff < 1000) return "just now";
+        if (diff < 60000) return Math.floor(diff / 1000) + "s ago";
+        if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
+        return Math.floor(diff / 3600000) + "h ago";
+      }
 
-function eventCategory(type) {
-  if (!type) return 'muted';
-  if (type.startsWith('action:failure') || type.startsWith('bot:error') || type.startsWith('bot:kicked') || type.startsWith('bot:death')) return 'red';
-  if (type.startsWith('action:success') || type.startsWith('bot:spawn') || type.startsWith('bot:login')) return 'green';
-  if (type.startsWith('action:start') || type.startsWith('pathing:') || type.startsWith('physics:')) return 'blue';
-  if (type.startsWith('safety:') || type.startsWith('entity:hurt') || type.startsWith('entity:dead')) return 'amber';
-  if (type.startsWith('executor:')) return 'cyan';
-  if (type.startsWith('planner:') || type.startsWith('goal:')) return 'purple';
-  if (type.startsWith('chat:')) return 'blue';
-  return 'muted';
-}
+      function eventCategory(type) {
+        if (!type) return "muted";
+        if (
+          type.startsWith("action:failure") ||
+          type.startsWith("bot:error") ||
+          type.startsWith("bot:kicked") ||
+          type.startsWith("bot:death")
+        )
+          return "red";
+        if (
+          type.startsWith("action:success") ||
+          type.startsWith("bot:spawn") ||
+          type.startsWith("bot:login")
+        )
+          return "green";
+        if (
+          type.startsWith("action:start") ||
+          type.startsWith("pathing:") ||
+          type.startsWith("physics:")
+        )
+          return "blue";
+        if (
+          type.startsWith("safety:") ||
+          type.startsWith("entity:hurt") ||
+          type.startsWith("entity:dead")
+        )
+          return "amber";
+        if (type.startsWith("executor:")) return "cyan";
+        if (type.startsWith("planner:") || type.startsWith("goal:")) return "purple";
+        if (type.startsWith("chat:")) return "blue";
+        return "muted";
+      }
 
-function summarize(payload, options = {}) {
-  const truncateValues = options.truncateValues !== false;
+      function summarize(payload, options = {}) {
+        const truncateValues = options.truncateValues !== false;
 
-  if (payload == null) return '';
-  if (typeof payload === 'string') return payload;
-  if (typeof payload !== 'object') return String(payload);
+        if (payload == null) return "";
+        if (typeof payload === "string") return payload;
+        if (typeof payload !== "object") return String(payload);
 
-  const parts = [];
-  for (const [k, v] of Object.entries(payload)) {
-    if (v == null) continue;
-    if (typeof v === 'object') {
-      if (v.x != null) { parts.push(`${k}: ${v.x.toFixed?.(1) ?? v.x},${v.y.toFixed?.(1) ?? v.y},${v.z.toFixed?.(1) ?? v.z}`); continue; }
-      continue;
-    }
-    const s = String(v);
-    if (truncateValues && s.length > 60) { parts.push(k + ': ' + s.slice(0, 57) + '...'); continue; }
-    parts.push(k + ': ' + s);
-  }
-  return parts.join(' | ');
-}
-</script>
-</body>
+        const parts = [];
+        for (const [k, v] of Object.entries(payload)) {
+          if (v == null) continue;
+          if (typeof v === "object") {
+            if (v.x != null) {
+              parts.push(
+                `${k}: ${v.x.toFixed?.(1) ?? v.x},${v.y.toFixed?.(1) ?? v.y},${v.z.toFixed?.(1) ?? v.z}`,
+              );
+              continue;
+            }
+            continue;
+          }
+          const s = String(v);
+          if (truncateValues && s.length > 60) {
+            parts.push(k + ": " + s.slice(0, 57) + "...");
+            continue;
+          }
+          parts.push(k + ": " + s);
+        }
+        return parts.join(" | ");
+      }
+    </script>
+  </body>
 </html>

@@ -1,6 +1,6 @@
-import type { Bot } from 'mineflayer';
-import type { Pathfinder } from 'mineflayer-pathfinder';
-import type { Vec3 } from 'vec3';
+import type { Bot } from "mineflayer";
+import type { Pathfinder } from "mineflayer-pathfinder";
+import type { Vec3 } from "vec3";
 
 export type JsonPrimitive = boolean | number | string | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -12,7 +12,7 @@ export interface Vec3Like {
 }
 
 export interface BotConfig {
-  auth: 'microsoft' | 'mojang' | 'offline';
+  auth: "microsoft" | "mojang" | "offline";
   dashboardPort: number;
   debugKnockback: boolean;
   debugKnockbackFile: string;
@@ -81,7 +81,7 @@ export interface VisibleBlockSummary extends SerializedBlock {
 }
 
 export interface VisibleHazardSummary {
-  category: 'block' | 'entity';
+  category: "block" | "entity";
   distance: number;
   name: string;
   position: SerializedVec3 | null;
@@ -261,14 +261,42 @@ export interface PathingOptions {
 export interface PathingModule {
   readonly movements: unknown;
   configure(options?: Record<string, unknown>): Record<string, unknown>;
-  followEntity(entity: EntityLike, range?: number): { entity: SerializedEntity | null; range: number };
-  goto(position: Vec3Like | Vec3, range?: number, options?: PathingOptions): Promise<{ position: SerializedVec3 | null; range: number }>;
-  gotoBlock(block: BlockLike, range?: number, options?: PathingOptions): Promise<{ block: string; position: SerializedVec3 | null; range: number }>;
-  gotoLookAt(position: Vec3Like | Vec3, reach?: number, options?: PathingOptions): Promise<{ position: SerializedVec3 | null; reach: number }>;
-  gotoPlace(position: Vec3Like | Vec3, options?: PathingOptions): Promise<{ position: SerializedVec3 | null; range: number }>;
-  moveAwayFrom(position: Vec3Like | Vec3, minDistance?: number, options?: PathingOptions): Promise<{ minDistance: number; threat: SerializedVec3 | null }>;
-  pause(durationMs?: number, reason?: string): { durationMs: number; reason: string; until: string };
-  stabilize(durationMs?: number, reason?: string): { durationMs: number; holdUntil: string; reason: string };
+  followEntity(
+    entity: EntityLike,
+    range?: number,
+  ): { entity: SerializedEntity | null; range: number };
+  goto(
+    position: Vec3Like | Vec3,
+    range?: number,
+    options?: PathingOptions,
+  ): Promise<{ position: SerializedVec3 | null; range: number }>;
+  gotoBlock(
+    block: BlockLike,
+    range?: number,
+    options?: PathingOptions,
+  ): Promise<{ block: string; position: SerializedVec3 | null; range: number }>;
+  gotoLookAt(
+    position: Vec3Like | Vec3,
+    reach?: number,
+    options?: PathingOptions,
+  ): Promise<{ position: SerializedVec3 | null; reach: number }>;
+  gotoPlace(
+    position: Vec3Like | Vec3,
+    options?: PathingOptions,
+  ): Promise<{ position: SerializedVec3 | null; range: number }>;
+  moveAwayFrom(
+    position: Vec3Like | Vec3,
+    minDistance?: number,
+    options?: PathingOptions,
+  ): Promise<{ minDistance: number; threat: SerializedVec3 | null }>;
+  pause(
+    durationMs?: number,
+    reason?: string,
+  ): { durationMs: number; reason: string; until: string };
+  stabilize(
+    durationMs?: number,
+    reason?: string,
+  ): { durationMs: number; holdUntil: string; reason: string };
   status(): PathingStatus;
   stop(): void;
 }
@@ -290,11 +318,16 @@ export interface InventoryModule {
   items(): Array<SerializedItem | null>;
   summary(): InventorySummary;
   toss(name: string, countValue?: number): Promise<{ count: number; name: string }>;
+  useHeldItem(options?: {
+    offHand?: boolean;
+    release?: boolean;
+  }): Promise<{ offHand: boolean; release: boolean }>;
 }
 
 export interface WorldModule {
   blockAtCursor(maxDistance?: number): SerializedBlock | null;
   entityAtCursor(maxDistance?: number): SerializedEntity | null;
+  entityById(id: number): EntityLike | null;
   entityByUsername(username: string): EntityLike | null;
   findBlockByName(name: string, options?: WorldQueryOptions): SerializedBlock | null;
   findBlocksByName(name: string, options?: WorldQueryOptions): Array<SerializedBlock | null>;
@@ -309,15 +342,51 @@ export interface WorldModule {
 }
 
 export interface ActionsModule {
-  craftItem(name: string, count?: number, craftingTablePosition?: Vec3Like | Vec3 | null): Promise<{ count: number; craftingTable: SerializedBlock | null; item: string }>;
-  mineBlockAt(position: Vec3Like | Vec3, options?: { forceLook?: boolean; reach?: number }): Promise<SerializedBlock | null>;
-  openContainerAt(position: Vec3Like | Vec3): Promise<{ block: SerializedBlock | null; container: WindowLike & { close(): void }; items: Array<SerializedItem | null>; window: SerializedWindow | null }>;
+  craftItem(
+    name: string,
+    count?: number,
+    craftingTablePosition?: Vec3Like | Vec3 | null,
+  ): Promise<{ count: number; craftingTable: SerializedBlock | null; item: string }>;
+  depositItemsAt(
+    position: Vec3Like | Vec3,
+    items: Array<{ count: number; name: string }>,
+  ): Promise<{ block: SerializedBlock | null; deposited: Array<{ count: number; name: string }> }>;
+  interactBlockAt(
+    position: Vec3Like | Vec3,
+    options?: { reach?: number },
+  ): Promise<SerializedBlock | null>;
+  mineBlockAt(
+    position: Vec3Like | Vec3,
+    options?: { forceLook?: boolean; reach?: number },
+  ): Promise<SerializedBlock | null>;
+  openContainerAt(position: Vec3Like | Vec3): Promise<{
+    block: SerializedBlock | null;
+    container: WindowLike & { close(): void };
+    items: Array<SerializedItem | null>;
+    window: SerializedWindow | null;
+  }>;
   placeBlockAt(itemName: string, position: Vec3Like | Vec3): Promise<SerializedBlock | null>;
+  smeltAt(
+    position: Vec3Like | Vec3,
+    input: { count: number; name: string },
+    fuel: { count: number; name: string },
+    options?: { takeOutput?: boolean; waitMs?: number },
+  ): Promise<{ block: SerializedBlock | null; outputTaken: Array<SerializedItem | null> }>;
+  withdrawItemsAt(
+    position: Vec3Like | Vec3,
+    items: Array<{ count: number; name: string }>,
+  ): Promise<{ block: SerializedBlock | null; withdrawn: Array<{ count: number; name: string }> }>;
 }
 
 export interface CombatModule {
-  attackEntity(entity: EntityLike, options?: { approachRange?: number; swing?: boolean }): Promise<SerializedEntity | null>;
-  attackNearestHostile(maxDistance?: number, options?: { approachRange?: number; swing?: boolean }): Promise<SerializedEntity | null>;
+  attackEntity(
+    entity: EntityLike,
+    options?: { approachRange?: number; swing?: boolean },
+  ): Promise<SerializedEntity | null>;
+  attackNearestHostile(
+    maxDistance?: number,
+    options?: { approachRange?: number; swing?: boolean },
+  ): Promise<SerializedEntity | null>;
   hostiles(maxDistance?: number): NearbyEntitySummary[];
 }
 
@@ -359,7 +428,9 @@ export interface SafetyModule {
   disable(): SafetyStatus;
   enable(): SafetyStatus;
   escapeDanger(reason?: string): Promise<SafetyEscapeResult>;
-  retreatFromNearestHostile(minDistance?: number): Promise<{ hostile: SerializedEntity | null; minDistance: number }>;
+  retreatFromNearestHostile(
+    minDistance?: number,
+  ): Promise<{ hostile: SerializedEntity | null; minDistance: number }>;
   status(maxDistance?: number): SafetyStatus;
 }
 
@@ -390,8 +461,8 @@ export interface OrchestrationSnapshot {
     hunger: number;
     inventory: Record<string, number>;
     position: SerializedVec3 | null;
-    risk: 'high' | 'low' | 'medium';
-    timeOfDay: 'day' | 'night';
+    risk: "high" | "low" | "medium";
+    timeOfDay: "day" | "night";
   };
 }
 
@@ -407,7 +478,7 @@ export interface PlannerStatus {
   lastPlannedAt: string | null;
   lastTrigger: string | null;
   model: string;
-  provider: 'openrouter';
+  provider: "openrouter";
 }
 
 export interface PlannerModule {
@@ -431,7 +502,7 @@ export interface ExecutorStatus {
   lastStepAt: string | null;
   lastTrigger: string | null;
   model: string;
-  provider: 'openrouter';
+  provider: "openrouter";
 }
 
 export interface ExecutorModule {
@@ -510,9 +581,13 @@ export type MinecraftBot = Bot & {
   _client: {
     on(event: string, listener: (packet: any) => void): void;
   };
+  activateBlock?(block: unknown, direction?: unknown, cursorPos?: unknown): Promise<void>;
+  activateItem?(offHand?: boolean): void;
   agent?: Agent;
   controlState?: Record<string, boolean>;
+  deactivateItem?(): void;
   jumpQueued?: boolean;
+  openFurnace?(block: unknown): Promise<unknown>;
   pathfinder?: Pathfinder;
   physics?: {
     __compatWrappedSimulatePlayer?: boolean;

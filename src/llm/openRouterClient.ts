@@ -1,15 +1,15 @@
-import type { OrchestrationSnapshot } from '../types';
+import type { OrchestrationSnapshot } from "../types";
 
 const DEFAULT_TEMPERATURE = 0.2;
 const MAX_GOAL_LENGTH = 120;
 const SYSTEM_PROMPT = [
-  'You are planning the next high-level Minecraft bot goal.',
-  'Prioritize survival first, then food, shelter, and basic resources.',
-  'Prefer goals that are achievable from the current nearby world state.',
-  'Avoid long multi-step objectives and avoid depending on unseen tools or distant locations.',
+  "You are planning the next high-level Minecraft bot goal.",
+  "Prioritize survival first, then food, shelter, and basic resources.",
+  "Prefer goals that are achievable from the current nearby world state.",
+  "Avoid long multi-step objectives and avoid depending on unseen tools or distant locations.",
   'Return valid JSON with exactly one field: "goal".',
-  'The goal must be a concise plain-text string.',
-].join(' ');
+  "The goal must be a concise plain-text string.",
+].join(" ");
 
 interface ChatCompletionMessage {
   content?: string | Array<{ text?: string; type?: string }>;
@@ -34,7 +34,7 @@ interface ParsedResponseBody {
 export interface OpenRouterGoalClient {
   chooseGoal(snapshot: OrchestrationSnapshot): Promise<string>;
   readonly model: string;
-  readonly provider: 'openrouter';
+  readonly provider: "openrouter";
 }
 
 export interface OpenRouterClientConfig {
@@ -50,7 +50,7 @@ function buildUserPrompt(snapshot: OrchestrationSnapshot): string {
     instructions: {
       maxGoalLength: MAX_GOAL_LENGTH,
       responseShape: {
-        goal: 'string',
+        goal: "string",
       },
     },
     snapshot,
@@ -58,42 +58,40 @@ function buildUserPrompt(snapshot: OrchestrationSnapshot): string {
 }
 
 function truncateBody(text: string, limit = 200): string {
-  const normalized = text.replace(/\s+/g, ' ').trim();
+  const normalized = text.replace(/\s+/g, " ").trim();
 
   if (!normalized) {
-    return '';
+    return "";
   }
 
-  return normalized.length > limit
-    ? `${normalized.slice(0, limit - 1)}…`
-    : normalized;
+  return normalized.length > limit ? `${normalized.slice(0, limit - 1)}…` : normalized;
 }
 
 function validateClientConfig(config: OpenRouterClientConfig): void {
   if (!config.apiKey.trim()) {
-    throw new Error('OpenRouter API key is not configured');
+    throw new Error("OpenRouter API key is not configured");
   }
 
   if (!config.model.trim()) {
-    throw new Error('OpenRouter model is not configured');
+    throw new Error("OpenRouter model is not configured");
   }
 }
 
 function extractMessageContent(payload: ChatCompletionResponse): string {
   const content = payload.choices?.[0]?.message?.content;
 
-  if (typeof content === 'string') {
+  if (typeof content === "string") {
     return content;
   }
 
   if (Array.isArray(content)) {
     return content
-      .map((part) => (typeof part?.text === 'string' ? part.text : ''))
-      .join('')
+      .map((part) => (typeof part?.text === "string" ? part.text : ""))
+      .join("")
       .trim();
   }
 
-  throw new Error('OpenRouter response did not include message content');
+  throw new Error("OpenRouter response did not include message content");
 }
 
 function stripCodeFence(text: string): string {
@@ -112,22 +110,23 @@ function parseGoalResponse(text: string): string {
     );
   }
 
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('OpenRouter response JSON must be an object');
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("OpenRouter response JSON must be an object");
   }
 
   const keys = Object.keys(parsed);
 
-  if (keys.length !== 1 || keys[0] !== 'goal') {
+  if (keys.length !== 1 || keys[0] !== "goal") {
     throw new Error('OpenRouter response JSON must contain exactly one "goal" field');
   }
 
-  const goal = typeof (parsed as { goal?: unknown }).goal === 'string'
-    ? (parsed as { goal: string }).goal.trim()
-    : '';
+  const goal =
+    typeof (parsed as { goal?: unknown }).goal === "string"
+      ? (parsed as { goal: string }).goal.trim()
+      : "";
 
   if (!goal) {
-    throw new Error('OpenRouter goal must be a non-empty string');
+    throw new Error("OpenRouter goal must be a non-empty string");
   }
 
   if (goal.length > MAX_GOAL_LENGTH) {
@@ -139,7 +138,9 @@ function parseGoalResponse(text: string): string {
 
 function buildErrorMessage(responsePayload: ChatCompletionResponse, status: number): string {
   const message = responsePayload.error?.message?.trim();
-  return message ? `OpenRouter request failed (${status}): ${message}` : `OpenRouter request failed (${status})`;
+  return message
+    ? `OpenRouter request failed (${status}): ${message}`
+    : `OpenRouter request failed (${status})`;
 }
 
 async function parseResponseBody(response: Response): Promise<ParsedResponseBody> {
@@ -165,10 +166,7 @@ async function parseResponseBody(response: Response): Promise<ParsedResponseBody
   }
 }
 
-function buildHttpErrorMessage(
-  parsedBody: ParsedResponseBody,
-  status: number,
-): string {
+function buildHttpErrorMessage(parsedBody: ParsedResponseBody, status: number): string {
   if (parsedBody.payload) {
     return buildErrorMessage(parsedBody.payload, status);
   }
@@ -186,22 +184,22 @@ export function createOpenRouterGoalClient(
   async function chooseGoal(snapshot: OrchestrationSnapshot): Promise<string> {
     validateClientConfig(config);
 
-    const response = await fetchImpl(`${config.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-      method: 'POST',
+    const response = await fetchImpl(`${config.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+      method: "POST",
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: config.model,
         temperature: DEFAULT_TEMPERATURE,
         messages: [
           {
-            role: 'system',
+            role: "system",
             content: SYSTEM_PROMPT,
           },
           {
-            role: 'user',
+            role: "user",
             content: buildUserPrompt(snapshot),
           },
         ],
@@ -214,14 +212,14 @@ export function createOpenRouterGoalClient(
     }
 
     if (!parsedBody.payload) {
-      throw new Error('OpenRouter response was not valid JSON: expected a JSON object body');
+      throw new Error("OpenRouter response was not valid JSON: expected a JSON object body");
     }
 
     return parseGoalResponse(extractMessageContent(parsedBody.payload));
   }
 
   return {
-    provider: 'openrouter',
+    provider: "openrouter",
     model: config.model,
     chooseGoal,
   };

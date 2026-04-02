@@ -1,25 +1,25 @@
-import * as readline from 'node:readline';
+import * as readline from "node:readline";
 
-import { createBot as createMineflayerBot } from 'mineflayer';
+import { createBot as createMineflayerBot } from "mineflayer";
 
-import { createAgent } from '../agent';
-import { startDashboardServer } from '../frontend/server';
-import { createStateAdapter } from '../frontend/state';
-import { installPhysicsCompat } from './installPhysicsCompat';
-import { installProtocolCompat } from './installProtocolCompat';
-import { createTerminal } from './terminal';
+import { createAgent } from "../agent";
+import { startDashboardServer } from "../frontend/server";
+import { createStateAdapter } from "../frontend/state";
+import { installPhysicsCompat } from "./installPhysicsCompat";
+import { installProtocolCompat } from "./installProtocolCompat";
+import { createTerminal } from "./terminal";
 
-import type { BotConfig, MinecraftBot } from '../types';
+import type { BotConfig, MinecraftBot } from "../types";
 
 function formatError(error: unknown): string {
   if (!error) {
-    return 'Unknown error';
+    return "Unknown error";
   }
 
   if (
-    typeof error === 'object' &&
+    typeof error === "object" &&
     error !== null &&
-    'errors' in error &&
+    "errors" in error &&
     Array.isArray(error.errors) &&
     error.errors.length > 0
   ) {
@@ -27,7 +27,7 @@ function formatError(error: unknown): string {
       .map((nestedError) =>
         nestedError instanceof Error ? nestedError.message : String(nestedError),
       )
-      .join(' | ');
+      .join(" | ");
   }
 
   return error instanceof Error ? error.message : String(error);
@@ -57,10 +57,10 @@ export async function createBot(config: BotConfig): Promise<MinecraftBot> {
   }
 
   ensurePhysicsCompat();
-  bot.on('login', () => {
+  bot.on("login", () => {
     setImmediate(ensurePhysicsCompat);
   });
-  bot.on('spawn', () => {
+  bot.on("spawn", () => {
     setImmediate(ensurePhysicsCompat);
   });
 
@@ -73,23 +73,21 @@ export async function createBot(config: BotConfig): Promise<MinecraftBot> {
   let hasLoggedIn = false;
   let lastErrorText: string | null = null;
 
-  bot.once('login', () => {
+  bot.once("login", () => {
     hasLoggedIn = true;
     console.log(`[bot] Logged in as ${bot.username}`);
   });
 
-  bot.once('spawn', () => {
+  bot.once("spawn", () => {
     const { x, y, z } = bot.entity.position;
-    console.log(
-      `[bot] Spawned at x=${x.toFixed(1)} y=${y.toFixed(1)} z=${z.toFixed(1)}`,
-    );
+    console.log(`[bot] Spawned at x=${x.toFixed(1)} y=${y.toFixed(1)} z=${z.toFixed(1)}`);
     if (debugKnockback) {
       console.log(`[debug] Knockback logging enabled: ${debugKnockbackFile}`);
     }
-    console.log('[bot] Type chat into this terminal, or use /help for agent commands');
+    console.log("[bot] Type chat into this terminal, or use /help for agent commands");
   });
 
-  bot.on('chat', (username, message) => {
+  bot.on("chat", (username, message) => {
     if (username === bot.username) {
       return;
     }
@@ -97,15 +95,15 @@ export async function createBot(config: BotConfig): Promise<MinecraftBot> {
     console.log(`[chat] <${username}> ${message}`);
   });
 
-  bot.on('messagestr', (message) => {
+  bot.on("messagestr", (message) => {
     console.log(`[server] ${message}`);
   });
 
-  bot.on('kicked', (reason) => {
-    console.error('[bot] Kicked from server:', reason);
+  bot.on("kicked", (reason) => {
+    console.error("[bot] Kicked from server:", reason);
   });
 
-  bot.on('error', (error) => {
+  bot.on("error", (error) => {
     const errorText = formatError(error);
 
     if (errorText === lastErrorText) {
@@ -113,15 +111,15 @@ export async function createBot(config: BotConfig): Promise<MinecraftBot> {
     }
 
     lastErrorText = errorText;
-    console.error('[bot] Error:', errorText);
+    console.error("[bot] Error:", errorText);
   });
 
-  bot.on('end', () => {
+  bot.on("end", () => {
     if (!hasLoggedIn) {
       process.exitCode = 1;
     }
 
-    console.log('[bot] Connection closed');
+    console.log("[bot] Connection closed");
     terminal.close();
   });
 

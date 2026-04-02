@@ -11,7 +11,7 @@ import type {
   PlannerStatus,
   SafetyStatus,
   StreamEvent,
-} from '../types';
+} from "../types";
 
 const EMPTY_VISIBLE_AREA = {
   focus: {
@@ -20,7 +20,7 @@ const EMPTY_VISIBLE_AREA = {
   },
   hazards: [],
   heading: {
-    cardinal: 'unknown',
+    cardinal: "unknown",
     pitch: 0,
     yaw: 0,
   },
@@ -34,7 +34,7 @@ export interface FrontendSession {
   host: string;
   lastError: string | null;
   port: number;
-  status: 'connecting' | 'ended' | 'kicked' | 'logged_in' | 'spawned';
+  status: "connecting" | "ended" | "kicked" | "logged_in" | "spawned";
   username: string;
 }
 
@@ -52,11 +52,11 @@ export interface FrontendState {
 }
 
 function formatChatEntry(entry: ChatHistoryEntry): string {
-  if (entry.channel === 'public' && entry.username) {
+  if (entry.channel === "public" && entry.username) {
     return `<${entry.username}> ${entry.text}`;
   }
 
-  if (entry.channel === 'server') {
+  if (entry.channel === "server") {
     return entry.text;
   }
 
@@ -96,17 +96,17 @@ function createPendingOrchestrationSnapshot(agent: Agent): OrchestrationSnapshot
       executor,
       planner,
       plan: [],
-      recentFailures: memory.working.filter((item) => item.tags.includes('failure')),
+      recentFailures: memory.working.filter((item) => item.tags.includes("failure")),
     },
     self: {
-      biome: 'unknown',
+      biome: "unknown",
       equipped: [],
       health: 0,
       hunger: 0,
       inventory: {},
       position: null,
-      risk: 'low',
-      timeOfDay: 'day',
+      risk: "low",
+      timeOfDay: "day",
     },
   };
 }
@@ -120,34 +120,34 @@ export function createStateAdapter(
   updateSession: (patch: Partial<FrontendSession>) => void;
 } {
   const session: FrontendSession = {
-    auth: config.auth ?? 'offline',
-    host: config.host ?? 'localhost',
+    auth: config.auth ?? "offline",
+    host: config.host ?? "localhost",
     lastError: null,
     port: config.port ?? 25565,
-    status: 'connecting',
-    username: config.username ?? 'Bot',
+    status: "connecting",
+    username: config.username ?? "Bot",
   };
 
-  bot.once('login', () => {
-    session.status = 'logged_in';
+  bot.once("login", () => {
+    session.status = "logged_in";
     session.username = bot.username ?? session.username;
   });
 
-  bot.once('spawn', () => {
-    session.status = 'spawned';
+  bot.once("spawn", () => {
+    session.status = "spawned";
   });
 
-  bot.on('kicked', (reason) => {
-    session.status = 'kicked';
-    session.lastError = typeof reason === 'string' ? reason : String(reason);
+  bot.on("kicked", (reason) => {
+    session.status = "kicked";
+    session.lastError = typeof reason === "string" ? reason : String(reason);
   });
 
-  bot.on('error', (error) => {
+  bot.on("error", (error) => {
     session.lastError = error instanceof Error ? error.message : String(error);
   });
 
-  bot.on('end', () => {
-    session.status = 'ended';
+  bot.on("end", () => {
+    session.status = "ended";
   });
 
   function snapshot(): FrontendState {

@@ -8,7 +8,7 @@ import {
   serializeEntity,
   serializeVec3,
   toVec3,
-} from '../utils';
+} from "../utils";
 
 import type {
   BlockLike,
@@ -24,21 +24,21 @@ import type {
   Vec3Like,
   WorldModule,
   WorldQueryOptions,
-} from '../../types';
+} from "../../types";
 
 const DEFAULT_VISIBLE_AREA_MAX_DISTANCE = 8;
 const DEFAULT_VISIBLE_AREA_BLOCK_LIMIT = 8;
 const DEFAULT_VISIBLE_AREA_ENTITY_LIMIT = 8;
-const IGNORED_BLOCK_NAMES = new Set(['air', 'cave_air', 'void_air']);
+const IGNORED_BLOCK_NAMES = new Set(["air", "cave_air", "void_air"]);
 const DANGER_BLOCK_REASONS = new Map<string, string>([
-  ['cactus', 'danger_block'],
-  ['campfire', 'danger_block'],
-  ['fire', 'danger_block'],
-  ['lava', 'danger_block'],
-  ['magma_block', 'danger_block'],
-  ['soul_campfire', 'danger_block'],
-  ['soul_fire', 'danger_block'],
-  ['sweet_berry_bush', 'danger_block'],
+  ["cactus", "danger_block"],
+  ["campfire", "danger_block"],
+  ["fire", "danger_block"],
+  ["lava", "danger_block"],
+  ["magma_block", "danger_block"],
+  ["soul_campfire", "danger_block"],
+  ["soul_fire", "danger_block"],
+  ["sweet_berry_bush", "danger_block"],
 ]);
 
 export function createWorldModule(bot: MinecraftBot): WorldModule {
@@ -77,15 +77,20 @@ export function createWorldModule(bot: MinecraftBot): WorldModule {
     );
   }
 
-  function findBlockByName(
-    name: string,
-    options: WorldQueryOptions = {},
-  ): SerializedBlock | null {
+  function findBlockByName(name: string, options: WorldQueryOptions = {}): SerializedBlock | null {
     return findBlocksByName(name, { ...options, count: 1 })[0] ?? null;
   }
 
   function entityByUsername(username: string): EntityLike | null {
     return (bot.players[username]?.entity as EntityLike | undefined) ?? null;
+  }
+
+  function entityById(id: number): EntityLike | null {
+    if (!Number.isInteger(id)) {
+      return null;
+    }
+
+    return (bot.entities[id] as EntityLike | undefined) ?? null;
   }
 
   function entityAtCursor(maxDistance = 4.5): SerializedEntity | null {
@@ -118,8 +123,14 @@ export function createWorldModule(bot: MinecraftBot): WorldModule {
       heading: getHeading(bot),
       highlights: buildHighlights({
         focus,
-        focusBlockDistance: distanceFromSerializedPosition(bot, focus.blockAtCursor?.position ?? null),
-        focusEntityDistance: distanceFromSerializedPosition(bot, focus.entityAtCursor?.position ?? null),
+        focusBlockDistance: distanceFromSerializedPosition(
+          bot,
+          focus.blockAtCursor?.position ?? null,
+        ),
+        focusEntityDistance: distanceFromSerializedPosition(
+          bot,
+          focus.entityAtCursor?.position ?? null,
+        ),
         hazards,
         visibleBlocks,
         visibleEntities,
@@ -132,12 +143,8 @@ export function createWorldModule(bot: MinecraftBot): WorldModule {
   function nearestEntity(options: WorldQueryOptions = {}): EntityLike | null {
     requireSpawned(bot);
 
-    const normalizedName = options.name
-      ? normalizeMinecraftName(options.name)
-      : null;
-    const normalizedUsername = options.username
-      ? String(options.username).trim()
-      : null;
+    const normalizedName = options.name ? normalizeMinecraftName(options.name) : null;
+    const normalizedUsername = options.username ? String(options.username).trim() : null;
     const maxDistance = options.maxDistance ?? Infinity;
     const matcher = options.matcher;
 
@@ -148,10 +155,7 @@ export function createWorldModule(bot: MinecraftBot): WorldModule {
         return false;
       }
 
-      if (
-        normalizedName &&
-        normalizeMinecraftName(typedCandidate.name ?? '') !== normalizedName
-      ) {
+      if (normalizedName && normalizeMinecraftName(typedCandidate.name ?? "") !== normalizedName) {
         return false;
       }
 
@@ -209,6 +213,7 @@ export function createWorldModule(bot: MinecraftBot): WorldModule {
   return {
     blockAtCursor,
     entityAtCursor,
+    entityById,
     entityByUsername,
     findBlockByName,
     findBlocksByName,
@@ -223,10 +228,7 @@ export function createWorldModule(bot: MinecraftBot): WorldModule {
   };
 }
 
-function serializeNearbyEntity(
-  bot: MinecraftBot,
-  entity: EntityLike,
-): NearbyEntitySummary {
+function serializeNearbyEntity(bot: MinecraftBot, entity: EntityLike): NearbyEntitySummary {
   const serialized = serializeEntity(entity);
 
   return {
@@ -243,7 +245,7 @@ function serializeNearbyEntity(
   };
 }
 
-function getHeading(bot: MinecraftBot): VisibleAreaSnapshot['heading'] {
+function getHeading(bot: MinecraftBot): VisibleAreaSnapshot["heading"] {
   requireSpawned(bot);
 
   const entity = bot.entity as { pitch?: number; yaw?: number };
@@ -258,15 +260,15 @@ function getHeading(bot: MinecraftBot): VisibleAreaSnapshot['heading'] {
 }
 
 function deriveCardinalDirection(yaw: number): string {
-  const normalizedYaw = ((yaw % (Math.PI * 2)) + (Math.PI * 2)) % (Math.PI * 2);
+  const normalizedYaw = ((yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
   const quarterTurns = Math.round(normalizedYaw / (Math.PI / 2)) % 4;
-  const cardinalLabels = ['south', 'west', 'north', 'east'];
-  return cardinalLabels[quarterTurns] ?? 'south';
+  const cardinalLabels = ["south", "west", "north", "east"];
+  return cardinalLabels[quarterTurns] ?? "south";
 }
 
 function collectVisibleBlocks(
   bot: MinecraftBot,
-  options: Required<Pick<VisibleAreaOptions, 'blockLimit' | 'maxDistance'>>,
+  options: Required<Pick<VisibleAreaOptions, "blockLimit" | "maxDistance">>,
 ): VisibleBlockSummary[] {
   requireSpawned(bot);
 
@@ -292,7 +294,7 @@ function collectVisibleBlocks(
           continue;
         }
 
-        if (typeof bot.canSeeBlock === 'function' && !bot.canSeeBlock(block as never)) {
+        if (typeof bot.canSeeBlock === "function" && !bot.canSeeBlock(block as never)) {
           continue;
         }
 
@@ -311,10 +313,8 @@ function collectVisibleBlocks(
         if (
           !current ||
           candidate.distance < current.distance ||
-          (
-            candidate.distance === current.distance &&
-            comparePositions(candidate.position, current.position) < 0
-          )
+          (candidate.distance === current.distance &&
+            comparePositions(candidate.position, current.position) < 0)
         ) {
           closestByName.set(candidate.name, candidate);
         }
@@ -335,7 +335,7 @@ function collectVisibleBlocks(
 
 function collectVisibleEntities(
   bot: MinecraftBot,
-  options: Required<Pick<VisibleAreaOptions, 'entityLimit' | 'maxDistance'>>,
+  options: Required<Pick<VisibleAreaOptions, "entityLimit" | "maxDistance">>,
 ): NearbyEntitySummary[] {
   requireSpawned(bot);
 
@@ -361,20 +361,20 @@ function collectHazards(
   const entityHazards = visibleEntities
     .filter((entity) => isHostileEntity(entity))
     .map<VisibleHazardSummary>((entity) => ({
-      category: 'entity',
+      category: "entity",
       distance: entity.distance,
       name: getEntityLabel(entity),
       position: entity.position,
-      reason: 'hostile',
+      reason: "hostile",
     }));
   const blockHazards = visibleBlocks
     .filter((block) => DANGER_BLOCK_REASONS.has(block.name))
     .map<VisibleHazardSummary>((block) => ({
-      category: 'block',
+      category: "block",
       distance: block.distance,
       name: block.name,
       position: block.position,
-      reason: DANGER_BLOCK_REASONS.get(block.name) ?? 'danger_block',
+      reason: DANGER_BLOCK_REASONS.get(block.name) ?? "danger_block",
     }));
 
   return [...entityHazards, ...blockHazards].sort((left, right) => {
@@ -391,7 +391,7 @@ function collectHazards(
 }
 
 function buildHighlights(context: {
-  focus: VisibleAreaSnapshot['focus'];
+  focus: VisibleAreaSnapshot["focus"];
   focusBlockDistance: number | null;
   focusEntityDistance: number | null;
   hazards: VisibleHazardSummary[];
@@ -439,7 +439,7 @@ function distanceFromSerializedPosition(
 }
 
 function formatDistanceForHighlight(distance: number | null): string {
-  return Number.isFinite(distance) ? Number(distance).toFixed(1) : '?';
+  return Number.isFinite(distance) ? Number(distance).toFixed(1) : "?";
 }
 
 function comparePositions(
@@ -470,9 +470,9 @@ function comparePositions(
 }
 
 function getEntityLabel(
-  entity: Pick<SerializedEntity, 'displayName' | 'name' | 'type' | 'username'>,
+  entity: Pick<SerializedEntity, "displayName" | "name" | "type" | "username">,
 ): string {
-  return entity.username ?? entity.name ?? entity.displayName ?? entity.type ?? 'unknown';
+  return entity.username ?? entity.name ?? entity.displayName ?? entity.type ?? "unknown";
 }
 
 export const worldInternals = {

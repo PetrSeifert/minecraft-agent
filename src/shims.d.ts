@@ -1,4 +1,4 @@
-declare module 'prismarine-physics' {
+declare module "prismarine-physics" {
   export class PlayerState {
     constructor(bot: unknown, control: unknown);
   }
